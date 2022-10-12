@@ -10,15 +10,15 @@ Our model is based on the max-infinitely divisible process proposed by Bopp et a
 
 ![equation](https://latex.codecogs.com/gif.image?\dpi{110}X_t(\textbf{s})=\epsilon_t(\textbf{s})Y_t(\textbf{s}))
 
-where _X_t(**s**)_ is a spatio-temporal output from a simulator (e.g., high-resolution climate model),  $\epsilon_t(\bs)$ is a white noise process with independent 1/&alpha;-Fr\'{e}chet marginal distribution, and _Y_t(**s**)_ is described by a low-rank representation:
+where $X_t(s)$ is a spatio-temporal output from a simulator (e.g., high-resolution climate model),  $\epsilon_t(s)$ is a white noise process with independent $1/alpha$-Fr\'{e}chet marginal distribution, and $Y_t(s)$ is described by a low-rank representation:
 
-![equation](https://latex.codecogs.com/gif.image?\dpi{110}Y_t(\textbf{s})=\left(\sum_{k=1}^K \omega_k(\textbf{s}, r_k)^{1/\alpha}Z_{kt}\right)^\alpha.)
-
+<img src="https://latex.codecogs.com/svg.image?\left(\sum_{k=1}^K&space;\omega_k(\textbf{s},&space;r_k)^{1/\alpha}Z_{kt}\right)^\alpha" />
     
-Here, we use compactly-supported Wendland basis functions _&omega;_ _k_(**s**, r_k), _k_=1,...,_K_, which are centered at _K_ pre-specified knots. The latent variables are lighter-tailed, exponentially tilted, positive-stable variables:
+Here, we use compactly-supported Wendland basis functions $\omega_k(s, r_k)$, $k=1,\ldots,K$, which are centered at $K$ pre-specified knots. The latent variables are lighter-tailed, exponentially tilted, positive-stable variables:
 
-![equation](https://latex.codecogs.com/gif.image?\dpi{110}Z_{kt}\sim H(\alpha,\alpha,\theta_k),\; k=1,\ldots, K,)
-in which &alpha; &isin; (0,1) is the concentration parameter, and larger values of the tail index &theta;_k\geq 0 induce lighter-tailed distributions of _Z_{kt}_. 
+![equation](https://latex.codecogs.com/svg.image?Z_{kt}\sim&space;H(\alpha,\alpha,\theta_k),\;&space;k=1,\ldots,&space;K,)
+
+in which $\alpha\in (0,1)$ is the concentration parameter, and larger values of the tail index $\theta_k\geq 0$ induce lighter-tailed distributions of $Z_{kt}$. 
 
 ### Conditional variational autoencoder
 ![plot1](www/Extremes_CVAE.png)
