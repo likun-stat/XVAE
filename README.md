@@ -2,7 +2,7 @@
 
 Department of Statistics, University of Missouri
 
-## Emulating complex climate models via integrating variational autoencoder and spatial extremes
+> Emulating complex climate models via integrating variational autoencoder and spatial extremes
 
 ### Max-infinitely divisible processes
 
@@ -21,7 +21,7 @@ where $X_t(s)$ is a spatio-temporal output from a simulator (e.g., high-resoluti
 Here, we use compactly-supported Wendland basis functions $\omega_k(s, r_k)$, $k=1,\ldots,K$, which are centered at $K$ pre-specified knots. The latent variables are lighter-tailed, exponentially tilted, positive-stable variables:
 
 <p align="center">
-<img src="https://latex.codecogs.com/svg.image?Z_{kt}\sim H(\alpha,\alpha,\theta_k),&space; k=1,\ldots, K," />
+<img src="https://latex.codecogs.com/svg.image?https://latex.codecogs.com/svg.image?Z_{kt}\sim&space;H(\alpha,\alpha,\theta_k),\;&space;k=1,\ldots,&space;K,&space;" />
 </p>
 
 in which $\alpha\in (0,1)$ is the concentration parameter, and larger values of the tail index $\theta_k\geq 0$ induce lighter-tailed distributions of $Z_{kt}$. 
