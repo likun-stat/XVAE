@@ -1,10 +1,13 @@
 # setwd("C:/Users/liaoy/OneDrive - University of Missouri/VAE Project")
+# setwd('~/Desktop/GEV-GP_VAE/extCVAE/')
 source("utils.R")
 
 #### Simulation ####
 set.seed(123)
 stations <- data.frame(x=runif(2000, 0, 10), y=runif(2000, 0, 10))
-knot <- expand.grid(c(1,3,5,7,9),c(1,3,5,7,9))
+knot <- expand.grid(x=c(1,3,5,7,9),y=c(1,3,5,7,9))
+plot(stations)
+points(knot, pch="+", col='red', cex=2)
 
 k = nrow(knot)
 n.s <- nrow(stations)
@@ -13,22 +16,47 @@ n.t <- 100 # n.t <- 500
 eucD <- rdist(stations,as.matrix(knot))
 
 W <- wendland(eucD,r=3)
+dim(W)
 W <- sweep(W, 1, rowSums(W), FUN="/")
+points(stations[W[,1]>0,], pch=20, col='blue')
+points(stations[W[,25]>0,], pch=20, col='green')
+points(stations[W[,17]>0,], pch=20, col='orange')
 
-set.seed(123)
-theta_sim <- runif(n.t*k,0,2)
-theta_sim[sample(n.t*k,n.t*k/5,replace = F)] = 0
-theta_sim <- matrix(theta_sim,ncol = k)
+set.seed(12)
+theta_sim <- (sin(knot$x/2)*cos(knot$y/2)+1)/50
+theta_sim[theta_sim < 0.005] <- 0
+theta_sim <- matrix(rep(theta_sim, n.t), ncol=n.t)
+fields::image.plot(c(1,3,5,7,9), c(1,3,5,7,9), matrix(theta_sim[,1],5,5), col=terrain.colors(25))
+
+
 alpha = 0.5
 V <- matrix(NA, nrow=k, ncol=n.t)
 X <- matrix(NA, nrow=n.s, ncol=n.t)
 
 for (iter in 1:n.t) {
   for (i in 1:k) {
-    V[i,iter] <- double_rejection_sampler(theta = theta_sim[iter,i],alpha = alpha)
+    V[i,iter] <- double_rejection_sampler(theta = theta_sim[i,iter],alpha = alpha)
   }
-  X[,iter] <- rfrechet(n.s,shape=(1/alpha)) * (rowSums(V[,iter]*(W^(1/alpha))))^alpha
+  # X[,iter] <- rfrechet(n.s,shape=(1/alpha)) * (rowSums(V[,iter]*(W^(1/alpha))))^alpha
+  X[,iter] <- rfrechet(n.s,shape=(1/alpha)) * (rowSums((W^(1/alpha))%*%diag(V[,iter])))^alpha
 }
+
+
+ind=53
+spatial_map(stations, var=X[,ind], tight.brks = TRUE, title=paste0('Time replicate #', ind))
+
+y_true <-  rowSums((W^(1/alpha))%*%diag(V))
+log_v <- 0
+for (i in 1:n.t) {
+  for (j in 1:k) {
+    log_v = log_v+log(f_H(V[j,i],alpha = alpha,theta = theta_sim[j,i]))
+  }
+}
+
+part1 = (-n.s * log(alpha) * n.t + sum((-1/alpha-1)*log(X)+log(y_true)) + (-sum(X^(-1/alpha-1)*y_true))) # p(X_t=x_t|v_t)
+part2 = log_v  
+
+(part1+part2)/(n.s*n.t) # 23.86811
 
 
 #### MLP Decoder ####
@@ -81,23 +109,23 @@ ELBO_flexible_extreme <- function(phi, X, Epsilon, Epsilon_prime, alpha, W){
   l_1 <- relu(w_6 %m% l + b_6)
   theta_t <- array(relu(w_7 %m% l_1 + b_7),dim=c(k,n.t))
   
-  y <- W^(1/alpha) %m% v_t
+  learned_Z_t <- exp(v_t)
+  y <- W^(1/alpha) %m% learned_Z_t
   
   # theta_prior <- ifelse(theta_t<=2 & theta_t>=0, 1, 0) # unif(0,2)
   log_v <- 0
   for (i in 1:n.t) {
     for (j in 1:k) {
-      log_v = log_v+log(f_H(v_t[j,i],alpha = alpha,theta = theta_t[j,i]))
+      log_v = log_v+log(f_H(learned_Z_t[j,i],alpha = alpha,theta = theta_t[j,i]))+v_t[j,i]
     }
   }
   
-  part1 = -(n.s * log(1/alpha) * n.t + sum(log(X^(-1/alpha-1)*y)) + (-sum(X^(-1/alpha-1)*y))) # p(X_t=x_t|v_t)
+  part1 = -(-n.s * log(alpha) * n.t + sum((-1/alpha-1)*log(X)+log(y)) + (-sum(X^(-1/alpha-1)*y))) # p(X_t=x_t|v_t)
   part2 = - log_v                                                                        # p(v_t|theta_t), p(theta_t)
-  part3 = -sum(((v_t-mu)^2)/sigma_sq_vec)/2 - sum(((v_t_prime-mu_prime)^2)/sigma_sq_vec_prime)/2  # q(v_t|x_t), q(v_t_prime|x_t)
-  part4 = -sum(Epsilon^2)/2 - sum(Epsilon_prime^2)/2 - sum(log(sigma_sq_vec))/2 - sum(log(sigma_sq_vec_prime))/2
-  res <- part1 + part2 - part3 - part4
-  
-  return(res/(n.s*n.t))
+  part3 = -sum(Epsilon^2)/2- sum(log(sigma_sq_vec)) 
+  part4 = - sum(Epsilon_prime^2)/2 -sum(log(sigma_sq_vec_prime))
+  res <- part1 + part2 + part3 + part4
+  return(-res/(n.s*n.t))
 }
 
 ## -------------- 5. Initializae & Start Algorithm 1 -------------- 
@@ -118,7 +146,7 @@ w_4 <- rnorm(k*k,0,0.001)
 b_1 <- rnorm(k)
 b_2 <- rnorm(k)
 b_3 <- rnorm(k,0,0.001)
-b_4 <- runif(k,10,20)
+b_4 <- runif(k,-0.001,0.001)
 
 w_1_prime <- rnorm(k*n.s,0,0.001)
 w_2_prime <- rnorm(k*k,0,0.001)
@@ -196,11 +224,10 @@ phi_star_new[14729] <- phi_star_new[14729] + 1e-8
 #### SGD ####
 
 
-phi <- phi_current
 GradientDescent_allParams_ELBO_MLP_Flexible_Extreme <- function(X, Epsilon, Epsilon_prime,W,alpha,
-                                                  theta_phi_star,
+                                                  phi_star,
                                                   gamma = 0.1, ## Starting learning_rate
-                                                  max.it=600, max.it.gamma =100, rel.tol = 1e-10, trace=FALSE){
+                                                  max.it=600, rel.tol = 1e-10, trace=FALSE){
   n.s <- nrow(X); n.t <- ncol(X); k <- ncol(Epsilon)
   ## Make gradient functions
   phi_grad_atudiffr <- makeGradFunc(ELBO_flexible_extreme, X=X, Epsilon=Epsilon, 
@@ -218,16 +245,11 @@ GradientDescent_allParams_ELBO_MLP_Flexible_Extreme <- function(X, Epsilon, Epsi
     ## (1) Update phi
     phi_current <- phi_old - gamma * grads_old
     func_val <- ELBO_flexible_extreme(phi_current,X=X, Epsilon=Epsilon,Epsilon_prime=Epsilon_prime,W=W,alpha = alpha)
-
-    counter <- 0
     while(!is.finite(func_val)){
-      gamma <- gamma/10
+      gamma <- gamma/5
       phi_current <- phi_old - gamma * grads_old
       func_val <- ELBO_flexible_extreme(phi_current,X=X, Epsilon=Epsilon,Epsilon_prime=Epsilon_prime,W=W,alpha = alpha)
-      counter <- counter + 1
-      if(counter>max.it.gamma) stop('SGD is stuck on the boundary of GEV boundary')
     }
-
     ## (2) Update gradient
     grads <- -phi_grad_atudiffr(phi_current)
 
@@ -258,7 +280,7 @@ if(minibatch_size==10) add=FALSE else add=TRUE
 
 
 count <- 1
-while (abs.err >1e-2 & count < max.it){
+while (count < max.it){
   ## (a) Random minibatch of data
   minibatch_index <- sample(1:n.t, minibatch_size)
 
@@ -268,16 +290,17 @@ while (abs.err >1e-2 & count < max.it){
   
   ## (c) SGD optimizer
   phi_new <- GradientDescent_allParams_ELBO_MLP_Flexible_Extreme(X[, minibatch_index], Epsilon, Epsilon_prime,W,alpha,
-                                                         phi_star, max.it=30, max.it.gamma =100, rel.tol = 1e-10, trace=TRUE)
+                                                         phi_star, max.it=2, rel.tol = 1e-10, trace=TRUE)
   new.abs.err <- sqrt(sum((phi_new-phi_star)^2))
   phi_star <- phi_new
   Elbo_val <- ELBO_flexible_extreme(phi_star, X=X[, minibatch_index], Epsilon=Epsilon, Epsilon_prime=Epsilon_prime, 
                                                                   W=W, alpha = alpha)
   cat('iter=', count, ' squared.error=', abs.err, ' ELBO=', Elbo_val,  '\n')
-  if(count == 1 & !add) plot(1:max.it, (1:max.it)/3, type='n', xlab='iter', ylab='squared.err', ylim=c(0, new.abs.err+15))
-  if(count>1) lines(c(count-1, count), c(abs.err, new.abs.err), col=line.col)
+  if(count == 1 & !add) {
+    plot(1:max.it, (1:max.it)/3, type='n', xlab='iter', ylab='squared.err', ylim=c(0, new.abs.err+15))
+    if(count>1) lines(c(count-1, count), c(abs.err, new.abs.err), col=line.col)
+    points(count, new.abs.err, pch=20, col=pt.col)}
   count = count + 1
-  points(count, new.abs.err, pch=20, col=pt.col)
   abs.err <- new.abs.err
 }
 

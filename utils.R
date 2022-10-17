@@ -119,3 +119,67 @@ double_rejection_sampler = function(theta=theta,alpha=alpha){
     return(res)
   }
 }
+
+
+
+
+
+#################################################################################
+##  ------------------------ Plot pretty spatial maps ---------------------------
+#################################################################################
+spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd"), 
+                        title='spatial map', legend.name='val', show.legend=TRUE,
+                        xlab='x', ylab='y',
+                        brks.round = 2, tight.brks = FALSE,
+                        conus_fill = "white", 
+                        border.wd = 0.2, pt.size = 3, shp = 16,
+                        range=NULL, q25=NULL, q75=NULL){
+  require(ggplot2);require(ggh4x)
+  if(colnames(stations)[1]!='x') colnames(stations)=c('x', 'y')
+  if(is.null(var)) show.legend=FALSE
+  if(!show.legend){
+    plt0 <- ggplot(stations) +
+      geom_point(size = pt.size, shape = shp, aes( x = x, y = y), na.rm = TRUE) +
+      ylab('y') + xlab('x') +
+      theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
+            plot.title = element_text(hjust = 0.5, size=14),
+            legend.text=element_text(size=12), legend.title=element_text(size=13),
+            axis.text=element_text(size=13), axis.title.y=element_text(size=14), 
+            axis.title.x=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)))+
+      ggtitle(title) +
+      force_panelsizes(rows = unit(3.75, "in"),
+                       cols = unit(3.75, "in"))
+    return(plt0)
+  }
+  
+  if(is.null(range)) range =  range(var, na.rm=TRUE)
+  nugget = 10^{-brks.round}
+  brks = round(seq(range[1]-nugget, range[2]+nugget, length.out = length(pal)+1), brks.round)
+  if(tight.brks) {
+    if(is.null(q25)) q25 = quantile(var, p=0.25)
+    if(is.null(q75)) q75 = quantile(var, p=0.75)
+    brks = round(c(range[1]-nugget, seq(q25, q75, length.out = length(pal)-1), range[2]+nugget), brks.round)
+  }
+  color.use <- cut(var, brks, include.lowest = TRUE)
+  col.labels <- c(paste("<", brks[2]), levels(color.use)[2:(length(brks)-2)],
+                  paste(">", brks[(length(brks)-1)]))
+  
+  sc <- scale_color_manual( values = pal, name = legend.name, drop = FALSE, na.translate=FALSE,
+                            labels = col.labels ) 
+  gd <- guides(color = guide_legend( reverse = TRUE, override.aes = list(size=5) ))
+  
+  plt1 <- ggplot(stations) +
+    geom_point(size = pt.size, shape = shp, aes( x = x, y = y, color = color.use ), na.rm = TRUE) +
+    ylab(ylab) + xlab(xlab)  + sc + gd +
+    theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
+          plot.title = element_text(hjust = 0.5, size=14),
+          legend.text=element_text(size=12), legend.title=element_text(size=13),
+          axis.text=element_text(size=13), axis.title.y=element_text(size=14), 
+          axis.title.x=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)))+
+    ggtitle(title) +
+    force_panelsizes(rows = unit(3.75, "in"),
+                     cols = unit(3.75, "in"))
+  return(plt1)
+}
+
+
