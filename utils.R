@@ -1,17 +1,19 @@
 library(dplyr)
-library(autodiffr)
+# library(autodiffr)
 library(fields)
 library(VGAM)
 
 # devtools::install_github("Non-Contradiction/autodiffr")
 # devtools::install_github("Non-Contradiction/JuliaCall")
-ad_setup()
+
 # ad_setup("C:/Users/xm3cf/AppData/Local/Programs/Julia-1.7.3/bin")
 # ad_setup("C:/Users/Xiaoyu/AppData/Local/Programs/Julia-1.8.2/bin")
 # ad_setup("/Applications/Julia-1.7.app/Contents/Resources/julia/bin")
 
+# ad_setup()
 relu <- function(x){
-  return(log(1+exp(x)))
+  return(pmax(0,x))
+  # return(log(1+exp(x)))
 }
 wendland <- function (d,r) {
   if (any(d < 0)) 
@@ -30,10 +32,11 @@ Zolo_A <- function(u,alpha=0.7){
   return(y)
 }
 
-f_H <- function(x,alpha=0.7,theta=0.02){
-  h <- function(u)(alpha/(1-alpha))*x^{-1/(1-alpha)}*Zolo_A(pi*u)*exp(-x^(-alpha/(1-alpha))*Zolo_A(pi*u))
-  n = 1e3
-  t = (1/n) * (h(1)/2 + sum(h(seq(1,n-1,1)/n)))
+f_H <- function(x,alpha=0.7,theta=0.02, n=1e3){
+  u <- seq(1,n,1)/n
+  tmp <- Zolo_A(pi*u, alpha)
+  H <- (alpha/(1-alpha))*x^{-1/(1-alpha)}*tmp*exp(-x^(-alpha/(1-alpha))*tmp)
+  t = (1/n) * (H[n]/2 + sum(H[1:(n-1)]))
   y = (1/(exp(theta^alpha)))*t*exp(-theta*x)
   return(y)
 }

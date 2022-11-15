@@ -33,14 +33,14 @@ fields::image.plot(c(1,3,5,7,9), c(1,3,5,7,9), matrix(theta_sim[,1],5,5), col=te
 alpha = 0.5
 Z <- matrix(NA, nrow=k, ncol=n.t)
 X <- matrix(NA, nrow=n.s, ncol=n.t)
-Epsilon_frechet <- matrix(NA, nrow=n.s, ncol=n.t)
+Epsilon <- matrix(NA, nrow=n.s, ncol=n.t)
 for (iter in 1:n.t) {
   for (i in 1:k) {
     Z[i,iter] <- double_rejection_sampler(theta = theta_sim[i,iter],alpha = alpha)
   }
   # X[,iter] <- rfrechet(n.s,shape=(1/alpha)) * (rowSums(V[,iter]*(W^(1/alpha))))^alpha
-  Epsilon_frechet[,iter] <- rfrechet(n.s,shape=1)
-  X[,iter] <-  Epsilon_frechet[,iter]* ((W^(1/alpha))%*%Z[,iter])
+  Epsilon[,iter] <- rfrechet(n.s,shape=(1/alpha))
+  X[,iter] <-  Epsilon[,iter]* ((W^(1/alpha))%*%Z[,iter])^alpha
 }
 
 
@@ -55,84 +55,58 @@ for (i in 1:n.t) {
   }
 }
 
-part1 = (sum((-2)*log(X)+log(y_true_star)) + (-sum(X^(-1)*y_true_star))) # p(X_t=x_t|v_t)
+part1 = (-n.s * log(alpha) * n.t + sum((-1/alpha-1)*log(X)+log(y_true_star)) + (-sum(X^(-1/alpha)*y_true_star))) # p(X_t=x_t|v_t)
 part2 = log_v  
 
 (part1+part2)/(n.s*n.t) # -0.9767699
 
 
 ##### Finding initial values #####
-Epsilon_frechet_indep <- matrix(rfrechet(n.s*n.t,shape=1), nrow=n.s)
 W_alpha <- W^(1/alpha)
-average_epsilon <- rowMeans(Epsilon_frechet_indep) # average over time
-w_1 <- solve(t(W_alpha)%*%W_alpha)%*%t(W_alpha)%*%diag(1/average_epsilon)
+X_over_epsilon <- rowMeans(X^{1/alpha}/Epsilon^{1/alpha}) # average over time
+w_1 <- solve(t(W_alpha)%*%W_alpha)%*%t(W_alpha)%*%diag(X_over_epsilon)
 Z_approx <- w_1%*%X
 Z_approx-Z
 
 
 X_approx <- matrix(NA, nrow=n.s, ncol=n.t)
 for (iter in 1:n.t){
-  X_approx[,iter] <- Epsilon_frechet_indep[,iter]* ((W^(1/alpha))%*%Z_approx[,iter])
+  X_approx[,iter] <- Epsilon[,iter]* ((W^(1/alpha))%*%Z_approx[,iter])^alpha
 }
 
-spatial_map(stations, var=X_approx[,ind], tight.brks = TRUE, 
-            title=paste0('Approx replicate #', ind), range = range(X_approx[,ind]),
-            q25 = quantile(X[,ind], probs = 0.25), q75=quantile(X[,ind], probs = 0.75))
+spatial_map(stations, var=X_approx[,ind], tight.brks = TRUE, title=paste0('Approx replicate #', ind))
 
-b_1 <- matrix(-apply(Z_approx,1, min), ncol=1)
-w_2 <- diag(k)
-b_2 <- matrix(rep(0.00001,k), ncol=1)
-w_4 <- diag(k)
-b_4 <- matrix(apply(Z_approx,1, min), ncol=1)
 
-w_3 <- -0*diag(k)
-b_3 <- matrix(rep(0.01,k), ncol=1)
+
+
 
 X_tensor <- torch_tensor(X)
 W_tensor <- torch_tensor(W)
 
 ##### Phi #####
 # phi start values
-set.seed(123)
+w_1 <- matrix(rnorm(k*n.s,0,0.001), nrow=k)
 w_1 <- torch_tensor(w_1,requires_grad = TRUE)
+w_2 <- matrix(rnorm(k*k,0,0.001), nrow=k)
 w_2 <- torch_tensor(w_2,requires_grad = TRUE)
+w_3 <- matrix(rnorm(k*k,0,0.001), nrow=k)
 w_3 <- torch_tensor(w_3,requires_grad = TRUE)
+w_4 <- matrix(rnorm(k*k,0,0.001), nrow=k)
 w_4 <- torch_tensor(w_4,requires_grad = TRUE)
+b_1 <- matrix(rnorm(k), ncol=1)
 b_1 <- torch_tensor(b_1,requires_grad = TRUE)
+b_2 <- matrix(rnorm(k), ncol=1)
 b_2 <- torch_tensor(b_2,requires_grad = TRUE)
+b_3 <- matrix(rnorm(k,0,0.001), ncol=1)
 b_3 <- torch_tensor(b_3,requires_grad = TRUE)
+b_4 <- matrix(runif(k,-0.001,0.001), ncol=1)
 b_4 <- torch_tensor(b_4,requires_grad = TRUE)
-
-h <- w_1$mm(X_tensor)$add(b_1)$relu()
-h_1 <- w_2$mm(h)$add(b_2)$relu()
-sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
-mu <- w_4$mm(h_1)$add(b_4)$relu()
-Epsilon <- matrix(abs(rnorm(k*n.t))+0.1, nrow=k)
-Epsilon <- torch_tensor(Epsilon)
-v_t <- mu + sqrt(sigma_sq_vec)*Epsilon
-y_approx <-  (W_tensor^(1/alpha))$mm(v_t)
-
-
-X_approx <- matrix(NA, nrow=n.s, ncol=n.t)
-for (iter in 1:n.t){
-  X_approx[,iter] <- as_array(Epsilon_frechet[,iter]* y_approx[,iter])
-}
-
-spatial_map(stations, var=X_approx[,ind], tight.brks = TRUE, 
-            title=paste0('Approx replicate #', ind), range = range(X_approx[,ind]),
-            q25 = quantile(X[,ind], probs = 0.25), q75=quantile(X[,ind], probs = 0.75))
-
-part1 = sum((-2)*log(X)+log(y_approx)) + (-sum(X^(-1)*y_approx)) # p(X_t=x_t|v_t)
-
-(part1+part2)/(n.s*n.t) # -0.9767699
-
-
 
 w_1_prime <- matrix(rnorm(k*n.s,0,0.001), nrow=k)
 w_1_prime <- torch_tensor(w_1_prime,requires_grad = TRUE)
 w_2_prime <- matrix(rnorm(k*k,0,0.001), nrow=k)
 w_2_prime <- torch_tensor(w_2_prime,requires_grad = TRUE)
-w_3_prime <- matrix(rep(0,k*k), nrow=k)
+w_3_prime <- matrix(rnorm(k*k,0,0.001), nrow=k)
 w_3_prime <- torch_tensor(w_3_prime,requires_grad = TRUE)
 w_4_prime <- matrix(rnorm(k*k,0,0.001), nrow=k)
 w_4_prime <- torch_tensor(w_4_prime,requires_grad = TRUE)
@@ -140,7 +114,7 @@ b_1_prime <- matrix(rnorm(k), ncol=1)
 b_1_prime <- torch_tensor(b_1_prime,requires_grad = TRUE)
 b_2_prime <- matrix(rnorm(k), ncol=1)
 b_2_prime <- torch_tensor(b_2_prime,requires_grad = TRUE)
-b_3_prime <- matrix(rep(0.001,k), ncol=1)
+b_3_prime <- matrix(rnorm(k,0,0.001), ncol=1)
 b_3_prime <- torch_tensor(b_3_prime,requires_grad = TRUE)
 b_4_prime <- matrix(runif(k,10,20), ncol=1)
 b_4_prime <- torch_tensor(b_4_prime,requires_grad = TRUE)
@@ -208,35 +182,30 @@ b_7_velocity <- torch_zeros(b_7$size())
 # b_6 <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
 # b_7 <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
 
+Epsilon <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
 Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
 
+Epsilon <- torch_tensor(Epsilon)
 Epsilon_prime <- torch_tensor(Epsilon_prime)
 
 ###### Loss and Optimization ######
 
 ### network parameters ---------------------------------------------------------
 
-learning_rate <- -2e-12
-alpha_v <- 0.9
-learning_rate <- -5e-12
-alpha_v <- 0.9
-learning_rate <- -1e-11
-alpha_v <- 0.9
-# learning_rate <- -6e-10
-# alpha_v <- 0.9
-
-niter = 20000
+learning_rate <- -1e-2
+alpha_v <- 0.1
+niter = 3000
 n <- 1e3
 # only depends on alpha; we are not updating alpha for now.
 vec <- Zolo_A(pi*seq(1/2,n-1/2,1)/n, alpha)
 Zolo_vec <- torch_tensor(vec, requires_grad = FALSE) 
 old_loss <- -Inf
-
+  
 for (t in 1:niter) {
   ### -------- Forward pass --------
-  Epsilon <- t(0.1+abs(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k)))))
+  Epsilon <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
   Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
-
+  
   Epsilon <- torch_tensor(Epsilon)
   Epsilon_prime <- torch_tensor(Epsilon_prime)
   
@@ -244,7 +213,7 @@ for (t in 1:niter) {
   h <- w_1$mm(X_tensor)$add(b_1)$relu()
   h_1 <- w_2$mm(h)$add(b_2)$relu()
   sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
-  mu <- w_4$mm(h_1)$add(b_4)$relu()
+  mu <- w_4$mm(h_1)$add(b_4)
   ## Encoder for v_t_prime
   h_prime <- w_1_prime$mm(X_tensor)$add(b_1_prime)$relu()
   h_1_prime <- w_2_prime$mm(h_prime)$add(b_2_prime)$relu()
@@ -259,17 +228,18 @@ for (t in 1:niter) {
   l_1 <- w_6$mm(l)$add(b_6)$relu()
   theta_t <- w_7$mm(l_1)$add(b_7)$relu()
   
-  y_star <- (W_tensor^(1/alpha))$mm(v_t)
+  learned_Z_t <- v_t$exp()
+  y_star <- (W_tensor^(1/alpha))$mm(learned_Z_t)
   
   log_v <- torch_zeros(c(k,n.t))
   for (i in 1:n.t) {
     for (j in 1:k) {
-      tmp = (alpha/(1-alpha)) * v_t[j,i]^{-1/(1-alpha)} * Zolo_vec * exp(-v_t[j,i]^(-alpha/(1-alpha)) * Zolo_vec)
-      log_v[j,i] =  log(exp(-theta_t[j,i]^alpha)*tmp$mean()) - theta_t[j,i]*v_t[j,i] 
+      tmp = (alpha/(1-alpha)) * learned_Z_t[j,i]^{-1/(1-alpha)} * Zolo_vec * exp(-learned_Z_t[j,i]^(-alpha/(1-alpha)) * Zolo_vec)
+      log_v[j,i] =  log(exp(-theta_t[j,i]^alpha)*tmp$mean()) - theta_t[j,i]*learned_Z_t[j,i] + v_t[j,i]
     }
   }
   
-  part1 = (-2)*(X_tensor)$log()$sum() + y_star$log()$sum() - (X_tensor^(-1)*(y_star))$sum()
+  part1 = (-n.s*log(alpha)*n.t +  (-1/alpha-1)*(X_tensor)$log()$sum() + y_star$log()$sum() - (X_tensor^(-1/alpha)*(y_star))$sum())
   part2 = log_v$sum()                                                                        # p(v_t|theta_t), p(theta_t)
   part4 = Epsilon$pow(2)$sum()/2 + Epsilon_prime$pow(2)$sum()/2 + sigma_sq_vec$log()$sum() + sigma_sq_vec_prime$log()$sum()
   res <- part1 + part2 + part4
@@ -291,14 +261,14 @@ for (t in 1:niter) {
   # Wrap in with_no_grad() because this is a part we DON'T 
   # want to record for automatic gradient computation
   with_no_grad({
-    # if(t>190 & learning_rate> -1e-7) {
-    #   learning_rate <- -1e-2
-    #   cat('Learing rate is now ', learning_rate, '\n')
-    # }
-    # if(t>2 & abs(loss$item()-old_loss)<0.002)  {
-    #   learning_rate <- learning_rate*alpha_v*0.1;
-    #   cat('Learing rate is now ', learning_rate, '\n')
-    # }
+    if(t>190 & learning_rate> -1e-7) {
+      learning_rate <- -1e-2
+      cat('Learing rate is now ', learning_rate, '\n')
+    }
+    if(t>2 & abs(loss$item()-old_loss)<0.002)  {
+      learning_rate <- learning_rate*alpha_v*0.1;
+      cat('Learing rate is now ', learning_rate, '\n')
+    }
     old_loss <- loss$item()
     w_1_velocity <- alpha_v*w_1_velocity - learning_rate*w_1$grad
     w_1$add_(w_1_velocity)
@@ -332,7 +302,7 @@ for (t in 1:niter) {
     b_3_prime$add_(b_3_prime_velocity)
     b_4_prime_velocity <- alpha_v*b_4_prime_velocity - learning_rate*b_4_prime$grad
     b_4_prime$add_(b_4_prime_velocity)
-    
+
     w_5_velocity <- alpha_v*w_5_velocity - learning_rate*w_5$grad
     w_5$add_(w_5_velocity)
     w_6_velocity <- alpha_v*w_6_velocity - learning_rate*w_6$grad
@@ -375,73 +345,14 @@ for (t in 1:niter) {
 
 
 
-plot(theta_sim[,1], as_array(theta_t[,1]), xlab=expression(paste('true ',theta)), ylab=expression(paste('CVAE ',theta)))
 
 
 
 
-# 
-# with_no_grad({
-#   w_1$add_(-w_1_velocity)
-#   w_1_velocity <- (w_1_velocity+learning_rate*w_1$grad)/alpha_v
-#   w_2$add_(-w_2_velocity)
-#   w_2_velocity <- (w_2_velocity+learning_rate*w_2$grad)/alpha_v
-#   w_3$add_(-w_3_velocity)
-#   w_3_velocity <- (w_3_velocity+learning_rate*w_3$grad)/alpha_v
-#   w_4$add_(-w_4_velocity)
-#   w_4_velocity <- (w_4_velocity+learning_rate*w_4$grad)/alpha_v
-#   
-#   b_1$add_(-b_1_velocity)
-#   b_1_velocity <- (b_1_velocity+learning_rate*b_1$grad)/alpha_v
-#   b_2$add_(-b_2_velocity)
-#   b_2_velocity <- (b_2_velocity+learning_rate*b_2$grad)/alpha_v
-#   b_3$add_(-b_3_velocity)
-#   b_3_velocity <- (b_3_velocity+learning_rate*b_3$grad)/alpha_v
-#   b_4$add_(-b_4_velocity)
-#   b_4_velocity <- (b_4_velocity+learning_rate*b_4$grad)/alpha_v
-#   
-#   w_1_prime$add_(-w_1_prime_velocity)
-#   w_1_prime_velocity <- (w_1_prime_velocity+learning_rate*w_1_prime$grad)/alpha_v
-#   w_2_prime$add_(-w_2_prime_velocity)
-#   w_2_prime_velocity <- (w_2_prime_velocity+learning_rate*w_2_prime$grad)/alpha_v
-#   w_2_prime$add_(-w_2_prime_velocity)
-#   w_3_prime_velocity <- (w_3_prime_velocity+learning_rate*w_3_prime$grad)/alpha_v
-#   w_3_prime$add_(-w_3_prime_velocity)
-#   w_4_prime_velocity <- (w_4_prime_velocity+learning_rate*w_4_prime$grad)/alpha_v
-# 
-#   b_1$add_(-b_1_velocity)
-#   b_1_velocity <- (b_1_velocity+learning_rate*b_1$grad)/alpha_v
-#   b_2$add_(-b_2_velocity)
-#   b_2_velocity <- (b_2_velocity+learning_rate*b_2$grad)/alpha_v
-#   b_3$add_(-b_3_velocity)
-#   b_3_velocity <- (b_3_velocity+learning_rate*b_3$grad)/alpha_v
-#   b_4$add_(-b_4_velocity)
-#   b_4_velocity <- (b_4_velocity+learning_rate*b_4$grad)/alpha_v
-#   
-#   b_1_prime_velocity <- alpha_v*b_1_prime_velocity - learning_rate*b_1_prime$grad
-#   b_1_prime$add_(b_1_prime_velocity)
-#   b_2_prime_velocity <- alpha_v*b_2_prime_velocity - learning_rate*b_2_prime$grad
-#   b_2_prime$add_(b_2_prime_velocity)
-#   b_3_prime_velocity <- alpha_v*b_3_prime_velocity - learning_rate*b_3_prime$grad
-#   b_3_prime$add_(b_3_prime_velocity)
-#   b_4_prime_velocity <- alpha_v*b_4_prime_velocity - learning_rate*b_4_prime$grad
-#   b_4_prime$add_(b_4_prime_velocity)
-#   
-#   w_5$add_(-w_5_velocity)
-#   w_5_velocity <- (w_5_velocity+learning_rate*w_5$grad)/alpha_v
-#   w_6$add_(-w_6_velocity)
-#   w_6_velocity <- (w_6_velocity+learning_rate*w_6$grad)/alpha_v
-#   w_7$add_(-w_7_velocity)
-#   w_7_velocity <- (w_7_velocity+learning_rate*w_7$grad)/alpha_v
-#   
-#   b_5$add_(-b_5_velocity)
-#   b_5_velocity <- (b_5_velocity+learning_rate*b_5$grad)/alpha_v
-#   b_6$add_(-b_6_velocity)
-#   b_6_velocity <- (b_6_velocity+learning_rate*b_6$grad)/alpha_v
-#   b_7$add_(-b_7_velocity)
-#   b_7_velocity <- (b_7_velocity+learning_rate*b_7$grad)/alpha_v
-# })
-# 
+
+
+
+
 
 
 ## -------------- 8. Run decoder to get the simulated weather processes -------------- 
@@ -456,7 +367,7 @@ station100_Simulations <- matrix(NA, nrow=n.s, ncol=n.sim)
 h <- w_1$mm(X_tensor)$add(b_1)$relu()
 h_1 <- w_2$mm(h)$add(b_2)$relu()
 sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
-mu <- w_4$mm(h_1)$add(b_4)$relu()
+mu <- w_4$mm(h_1)$add(b_4)
 ## Encoder for v_t_prime
 h_prime <- w_1_prime$mm(X_tensor)$add(b_1_prime)$relu()
 h_1_prime <- w_2_prime$mm(h_prime)$add(b_2_prime)$relu()
@@ -465,7 +376,7 @@ mu_prime <- w_4_prime$mm(h_1_prime)$add(b_4_prime)
 
 for(iter in 1:n.sim){
   if(iter %% 100==0) cat('iter=', iter, '\n')
-  Epsilon <- t(0.1+abs(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k)))))
+  Epsilon <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
   Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
   
   Epsilon <- torch_tensor(Epsilon)
@@ -480,14 +391,15 @@ for(iter in 1:n.sim){
   l_1 <- w_6$mm(l)$add(b_6)$relu()
   theta_t <- w_7$mm(l_1)$add(b_7)$relu()
   
-  y_star <- (W_tensor^(1/alpha))$mm(v_t)
+  learned_Z_t <- v_t$exp()
+  y_star <- (W_tensor^(1/alpha))$mm(learned_Z_t)
   
   
   ##Decoder
-  station1_Simulations[, iter] <- rfrechet(n.s,shape=(1)) * as_array((y_star[,1]))
-  station50_Simulations[, iter] <- rfrechet(n.s,shape=(1)) * as_array((y_star[,50]))
-  station55_Simulations[, iter] <- rfrechet(n.s,shape=(1)) * as_array((y_star[,55]))
-  station100_Simulations[, iter] <- rfrechet(n.s,shape=(1)) * as_array((y_star[,100]))
+  station1_Simulations[, iter] <- rfrechet(n.s,shape=(1/alpha)) * as_array((y_star[,1])^alpha)
+  station50_Simulations[, iter] <- rfrechet(n.s,shape=(1/alpha)) * as_array((y_star[,50])^alpha)
+  station55_Simulations[, iter] <- rfrechet(n.s,shape=(1/alpha)) * as_array((y_star[,55])^alpha)
+  station100_Simulations[, iter] <- rfrechet(n.s,shape=(1/alpha)) * as_array((y_star[,100])^alpha)
 }
 
 ind <- 1
@@ -508,81 +420,3 @@ plt31 <- spatial_map(stations, var=station1_Simulations[,floor(n.sim/2)], pal = 
 plt31
 ggsave("/Users/LikunZhang/Desktop/img2.png",width = 5.5, height = 5)
 
-ind <- 1
-extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)], 
-                 xlab=expression(paste('Simulated ', X[1])), 
-                 ylab=expression(paste('Emulated ', X[1])))
-extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)], 
-                 xlab=expression(paste('Simulated ', X[1])), 
-                 ylab=expression(paste('Emulated ', X[1])), 
-                 xlim=c(0,500), ylim=c(0,500))
-extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)], 
-                 xlab=expression(paste('Simulated ', X[1])), 
-                 ylab=expression(paste('Emulated ', X[1])), 
-                 xlim=c(0,7), ylim=c(0,7))
-
-
-
-ind <- 55
-range_t <- range(X[,ind])
-q25 <- quantile(X[,ind], 0.25)
-q75 <- quantile(X[,ind], 0.75)
-
-pal <- RColorBrewer::brewer.pal(9,"OrRd")
-plt3 <- spatial_map(stations, var=X[,ind], pal = pal,
-                    title = paste0('Simulated replicate #', ind), legend.name = "Observed\n values", 
-                    brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75)
-plt3
-ggsave("/Users/LikunZhang/Desktop/img3.png",width = 5.5, height = 5)
-
-plt31 <- spatial_map(stations, var=station55_Simulations[,floor(n.sim/2)], pal = pal,
-                     title = paste0('Emulated replicate #', ind), legend.name = "Emulated\n values", 
-                     brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75)
-plt31
-ggsave("/Users/LikunZhang/Desktop/img4.png",width = 5.5, height = 5)
-
-ind=55
-extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)], 
-                 xlab=expression(paste('Simulated ', X[55])), 
-                 ylab=expression(paste('Emulated ', X[55])))
-extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)], 
-                 xlab=expression(paste('Simulated ', X[55])), 
-                 ylab=expression(paste('Emulated ', X[55])), 
-                 xlim=c(0,500), ylim=c(0,500))
-extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)], 
-                 xlab=expression(paste('Simulated ', X[55])), 
-                 ylab=expression(paste('Emulated ', X[55])), 
-                 xlim=c(0,7), ylim=c(0,7))
-
-
-ind <- 100
-range_t <- range(X[,ind])
-q25 <- quantile(X[,ind], 0.25)
-q75 <- quantile(X[,ind], 0.75)
-
-pal <- RColorBrewer::brewer.pal(9,"OrRd")
-plt3 <- spatial_map(stations, var=X[,ind], pal = pal,
-                    title = paste0('Simulated replicate #', ind), legend.name = "Observed\n values", 
-                    brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75)
-plt3
-ggsave("/Users/LikunZhang/Desktop/img5.png",width = 5.5, height = 5)
-
-plt31 <- spatial_map(stations, var=station100_Simulations[,floor(n.sim/2)], pal = pal,
-                     title = paste0('Emulated replicate #', ind), legend.name = "Emulated\n values", 
-                     brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75)
-plt31
-ggsave("/Users/LikunZhang/Desktop/img6.png",width = 5.5, height = 5)
-
-quantile(X[,ind],prob=0.95)
-ind=100
-extRemes::qqplot(X[,ind], station100_Simulations[,floor(n.sim/2)], 
-                 xlab=expression(paste('Simulated ', X[100])), 
-                 ylab=expression(paste('Emulated ', X[100])))
-extRemes::qqplot(X[,ind], station100_Simulations[,floor(n.sim/2)], 
-                 xlab=expression(paste('Simulated ', X[100])), 
-                 ylab=expression(paste('Emulated ', X[100])), 
-                 xlim=c(0,500), ylim=c(0,500))
-extRemes::qqplot(X[,ind], station100_Simulations[,floor(n.sim/2)], 
-                 xlab=expression(paste('Simulated ', X[100])), 
-                 ylab=expression(paste('Emulated ', X[100])), 
-                 xlim=c(0,7), ylim=c(0,7))

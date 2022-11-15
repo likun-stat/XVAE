@@ -1,6 +1,7 @@
 # setwd("C:/Users/liaoy/OneDrive - University of Missouri/VAE Project")
-# setwd('~/Desktop/GEV-GP_VAE/extCVAE/')
+setwd('~/Desktop/GEV-GP_VAE/extCVAE/')
 source("utils.R")
+library(autodiffr)
 
 #### Simulation ####
 set.seed(123)
