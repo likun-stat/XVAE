@@ -32,14 +32,26 @@ Zolo_A <- function(u,alpha=0.7){
   return(y)
 }
 
-f_H <- function(x,alpha=0.7,theta=0.02, n=1e3){
-  u <- seq(1,n,1)/n
-  tmp <- Zolo_A(pi*u, alpha)
-  H <- (alpha/(1-alpha))*x^{-1/(1-alpha)}*tmp*exp(-x^(-alpha/(1-alpha))*tmp)
-  t = (1/n) * (H[n]/2 + sum(H[1:(n-1)]))
-  y = (1/(exp(theta^alpha)))*t*exp(-theta*x)
-  return(y)
+f_H <- function(x,alpha=0.7,theta=0.02, n=1e3, log=TRUE){
+  if(alpha==0.5){
+    alpha=1/2; beta = 1/4 # alpha = shape; beta = rate
+    f_x <- alpha*log(beta) -log(gamma(alpha)) - (alpha+1)*log(x) - beta/x
+    y = theta^alpha+f_x-theta*x
+  } else{
+    u <- seq(1/2,n-1/2,1)/n
+    tmp <- Zolo_A(pi*u, alpha)
+    const <- 1/(1-alpha); const1 <- 1/(1-alpha)-1
+    H <- const1*x^{-const}*tmp*exp(-x^(-const1)*tmp)
+    y = theta^alpha+log(mean(H))-theta*x
+  }
+  if(log) return(y) else return(exp(y))
 }
+
+# f_H_integrand <- function(u, x){
+#   A <- (sin(pi*u/2)/sin(pi*u))^2
+#   return(x^{-2}*A*exp(-A/x))
+# }
+# integrate(f_H_integrand, lower=0, upper=1, x=x)
 
 double_rejection_sampler = function(theta=theta,alpha=alpha){
   if(theta!=0){
@@ -123,8 +135,50 @@ double_rejection_sampler = function(theta=theta,alpha=alpha){
   }
 }
 
+# alpha is fixed at 1/2
+single_rejection_sampler = function(theta=theta){
+  X <- invgamma::rinvgamma(1, shape=1/2, scale=4)
+  V <- runif(1)
+  while(V> exp(-theta*X)){
+    X <- invgamma::rinvgamma(1, shape=1/2, scale=4)
+    V <- runif(1)
+  }
+  return(X)
+}
 
+# alpha is not necessarily 1/2
+single_rejection_sampler_alpha_not_half = function(theta=theta, alpha){
+  gamma <- cos(pi*alpha/2)^{1/alpha}
+  X <- stabledist::rstable(1, alpha=alpha, beta = 1, gamma = gamma, delta = 0, pm=1)
+  V <- runif(1)
+  while(V> exp(-theta*X)){
+    X <- stabledist::rstable(1, alpha=alpha, beta = 1, gamma = gamma, delta = 0, pm=1)
+    V <- runif(1)
+  }
+  return(X)
+}
 
+#################################################################################
+##  --------------------------- v_t initial values   ----------------------------
+#################################################################################
+full_cond <- function(v_t, W_alpha, X_t){
+  Y_t <- (W_alpha)%*%(v_t)
+  if(any(Y_t<0)) return(-1e5)
+  return(mean(log(Y_t)) - mean(X_t^(-1)*Y_t))
+}
+
+gradient_full_cond <-  function(v_t, W_alpha, X_t){
+  res <- rep(NA, ncol(W_alpha))
+  Y_t <- (W_alpha)%*%(v_t)
+  for (iter in 1:ncol(W_alpha)){
+    res[iter] <- sum(W_alpha[,iter]/Y_t) -sum(W_alpha[,iter]/X_t)
+  }
+  return(res)
+}
+
+# tmp =as_array(v_t[,1])
+# res <- optim(par=tmp, full_cond, W_alpha=W_alpha, X_t=X_t, gr=gradient_full_cond, method='CG',
+#       control = list(fnscale=-1, trace=1, maxit=20000))
 
 
 #################################################################################

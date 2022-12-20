@@ -4,6 +4,9 @@ load("~/Downloads/time1.RData")
 n.s <- nrow(X); n.t <- ncol(X)
 set.seed(123)
 stations <- data.frame(x=runif(2000, 0, 10), y=runif(2000, 0, 10))
+
+
+
 dist <- fields::rdist(stations)
 plot(stations)
 low <- 3.499; high <-3.501 #low <- 0.999; high <-1.001
@@ -80,13 +83,18 @@ for(i in 1:length(Q)){
 }
 
 
-plot(U_nonpara,EmpIntv[,2],type='l', ylim=c(0,1))
-lines(U_nonpara,EmpIntv[,1])
-lines(U_nonpara,EmpIntv[,3])
+plot(U_nonpara,EmpIntv[,3],type='l', ylim=c(0,1), col='blue', 
+     lwd=2, ylab=expression(xi), xlab='u')
+polygon(c(U_nonpara, U_nonpara[length(U_nonpara):1]), 
+        c(EmpIntv[,1], EmpIntv[length(U_nonpara):1,2]), 
+        col=scales::alpha('blue', 0.5), border=NA)
 
+lines(U_nonpara,EmpIntv[,3],type='l', ylim=c(0,1), col='red', lwd=2)
+polygon(c(U_nonpara, U_nonpara[length(U_nonpara):1]), 
+        c(EmpIntv[,1], EmpIntv[length(U_nonpara):1,2]), 
+        col=scales::alpha('red', 0.3), border=NA)
 
-
-
+legend('topright', legend='h=3.5')
 
 
 
