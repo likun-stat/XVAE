@@ -113,9 +113,11 @@ better_Z_approx <- matrix(data=NA, nrow=nrow(Z_approx), ncol=ncol(Z_approx))
 for(iter in 1:n.t){
   cat('Finding good initial Z_t for time', iter, '\n')
   tmp = as_array(v_t[,iter])
+  index = 1
   while(any(tmp>1e4)){
     cat('-- Bad initial Z_t from matrix projection', iter, '\n')
-    tmp = as_array(v_t[,iter+1])
+    tmp = as_array(v_t[,iter+index])
+    index = index + 1
   }
   res <- optim(par=tmp, full_cond, W_alpha=W_alpha, X_t=X[,iter], gr=gradient_full_cond, method='CG',
                control = list(fnscale=-1, trace=0, maxit=10000))
@@ -148,7 +150,7 @@ spatial_map(stations, var=X_approx[,ind], tight.brks = TRUE,
             q25 = quantile(X[,ind], probs = 0.25), q75=quantile(X[,ind], probs = 0.75))
 part1 = sum((-2)*log(X)+log(y_approx)) + (-sum(X^(-1)*y_approx)) # p(X_t=x_t|v_t)
 (part1+part2)/(n.s*n.t) # -2.17531
-
+hist(as_array((-2)*log(X)+log(y_approx) -X^(-1)*y_approx))
 
 ## w_prime and b_prime for theta
 w_1_prime <- as_array(w_1) #matrix(rnorm(k*n.s,0,0.001), nrow=k)
@@ -229,7 +231,7 @@ old_loss <- -Inf
 for (t in 1:niter) {
   if(t==1000) { learning_rate <- -5e-9; alpha_v <- 0.9}
   if(t==5000) { learning_rate <- -1e-8; alpha_v <- 0.7}
-  if(t==10000) { learning_rate <- -2e-8; alpha_v <- 0.5}
+  if(t==10000) { learning_rate <- -1e-8; alpha_v <- 0.5}
   if(t==20000) { learning_rate <- -2e-8; alpha_v <- 0.5}
   if(t==80000) { learning_rate <- -2e-8; alpha_v <- 0.4}
   if(t==100000) { learning_rate <- -1e-8; alpha_v <- 0.4}
@@ -385,8 +387,8 @@ for (t in 1:niter) {
 }
 
 
-
-plot(theta_sim[,1], as_array(theta_t[,1]), xlab=expression(paste('true ',theta)), ylab=expression(paste('CVAE ',theta)))
+loss - part4/(n.s*n.t)
+plot(theta_sim[,1], as_array(theta_t[,3]), xlab=expression(paste('true ',theta)), ylab=expression(paste('CVAE ',theta)))
 abline(a = 0, b = 1, col='orange', lty=2)
 
 
