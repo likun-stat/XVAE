@@ -1,16 +1,8 @@
 library(dplyr)
-# library(autodiffr)
 library(fields)
 library(VGAM)
+library(torch)
 
-# devtools::install_github("Non-Contradiction/autodiffr")
-# devtools::install_github("Non-Contradiction/JuliaCall")
-
-# ad_setup("C:/Users/xm3cf/AppData/Local/Programs/Julia-1.7.3/bin")
-# ad_setup("C:/Users/Xiaoyu/AppData/Local/Programs/Julia-1.8.2/bin")
-# ad_setup("/Applications/Julia-1.7.app/Contents/Resources/julia/bin")
-
-# ad_setup()
 relu <- function(x){
   return(pmax(0,x))
   # return(log(1+exp(x)))
@@ -53,6 +45,7 @@ f_H <- function(x,alpha=0.7,theta=0.02, n=1e3, log=TRUE){
 # }
 # integrate(f_H_integrand, lower=0, upper=1, x=x)
 
+# According to Devroye (2009), will get smaller sample!
 double_rejection_sampler = function(theta=theta,alpha=alpha){
   if(theta!=0){
     ## set up
@@ -158,6 +151,21 @@ single_rejection_sampler_alpha_not_half = function(theta=theta, alpha){
   return(X)
 }
 
+# Use functions in FMStable to calculate H density, but using numerical integration implicitly.
+H_density <- function(x,alpha=alpha,delta=delta,theta=theta){
+  gamma <- ((delta/alpha)*cos(pi*alpha/2))^{1/alpha}
+  xtmp <- x/((delta/alpha)^{1/alpha})
+  res1 <- FMStable::dEstable(xtmp,FMStable::setParam(alpha=alpha, location=0, logscale=log(gamma),pm="S1"))
+  res2 <- res1*exp(-theta*x)/(((delta/alpha)^{1/alpha})*exp((-delta*theta^alpha)/alpha))
+  return(res2)
+}
+
+# Marginal distribution function to calculate dependence measure. (Eq.10 in Bopp(2020))
+marginal_thetavec <- function(x,L=L,theta=theta,alpha=alpha,k_l=k_l){
+  y <- sapply(x, function(z) exp(sum(theta^alpha - (theta+(k_l/z)^(1/alpha))^alpha)))
+  return(y)
+}
+              
 #################################################################################
 ##  --------------------------- v_t initial values   ----------------------------
 #################################################################################
