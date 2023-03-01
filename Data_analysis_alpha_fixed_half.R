@@ -1,160 +1,278 @@
 library(torch)
 
-setwd('~/Desktop/GEV-GP_VAE/extCVAE/')
-# setwd("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GEV-GP_VAE/extCVAE/")
+# setwd('~/Desktop/GEV-GP_VAE/extCVAE/')
+setwd("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GEV-GP_VAE/extCVAE/")
 source("utils.R")
 
-###### ---------------------------------------------------------------------- ######
-###### ---------------------------- Simulation ------------------------------ ######
-###### ---------------------------------------------------------------------- ######
-set.seed(123)
-stations <- data.frame(x=runif(2000, 0, 10), y=runif(2000, 0, 10))
-knot <- expand.grid(x=c(1,3,5,7,9),y=c(1,3,5,7,9))
-plot(stations)
-points(knot, pch="+", col='red', cex=2)
+load("./mon_max_trans.RData")
+load("./new_loc.RData")
+load("./fitted_gev_par.RData")
 
-k = nrow(knot)
+range(new_loc[,2])
+plot_data <- data.frame(lon = new_loc[,1], lat = new_loc[,2], unif = mon_max_trans[,1], 
+                        loc = fitted_gev_par$location, scale = fitted_gev_par$scale, shape=fitted_gev_par$shape)
+# ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=unif)) +
+#   geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+#                                                    color = "gray",  size = 0.5) +
+#   scale_fill_gradientn(colours = topo.colors(100), name = "Time 1", na.value = NA, limits=c(0,1)) +
+#   xlim(29, 48) + ylim(9, 34)
+# 
+# ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=loc)) +
+#   geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+#             color = "gray",  size = 0.5) +
+#   scale_fill_gradientn(colours = topo.colors(100), name = expression(mu), na.value = NA) +
+#   xlim(29, 48) + ylim(9, 34)
+# 
+# ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=scale)) +
+#   geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+#             color = "gray",  size = 0.5) +
+#   scale_fill_gradientn(colours = topo.colors(100), name = expression(tau), na.value = NA) +
+#   xlim(29, 48) + ylim(9, 34)
+# 
+# ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=shape)) +
+#   geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+#             color = "gray",  size = 0.5) +
+#   scale_fill_gradientn(colours = topo.colors(100), name = expression(xi), na.value = NA) +
+#   xlim(29, 48) + ylim(9, 34)
+
+
+###### ---------------------------------------------------------------------- ######
+###### ------------------------ Marginal transformation --------------------- ######
+###### ---------------------------------------------------------------------- ######
+load("./mon_max_allsites.RData")
+fitted_gev_par$beta <- fitted_gev_par$location - fitted_gev_par$scale/fitted_gev_par$shape
+X <- array(NA, dim(mon_max_allsites))
+for(iter in 1:nrow(X)){
+  beta_tmp <- fitted_gev_par$beta[iter]
+  tau_tmp <- fitted_gev_par$scale[iter]
+  xi_tmp <-  fitted_gev_par$shape[iter]
+  fitted_gev_par$beta <- fitted_gev_par$location - fitted_gev_par$scale/fitted_gev_par$shape
+  X[iter, ] <- (tau_tmp/(abs(xi_tmp)*(beta_tmp - mon_max_allsites[iter,])))^{1/abs(xi_tmp)}
+}
+
+###### ---------------------------------------------------------------------- ######
+###### ------------------------------- Knots -------------------------------- ######
+###### ---------------------------------------------------------------------- ######
+x1 <- 33.39495; x2<- 43.05982
+y1 <- 29.81209; y2<- 13.21023
+len <- 24
+yseq <- seq(12,30, length.out=len)
+knot_candidates1 <- matrix(NA, ncol=2, nrow=length(yseq))
+knot_candidates2 <- matrix(NA, ncol=2, nrow=length(yseq))
+knot_candidates3 <- matrix(NA, ncol=2, nrow=length(yseq))
+knot_candidates4 <- matrix(NA, ncol=2, nrow=length(yseq))
+knot_candidates5 <- matrix(NA, ncol=2, nrow=length(yseq))
+knot_candidates6 <- matrix(NA, ncol=2, nrow=length(yseq))
+knot_candidates7 <- matrix(NA, ncol=2, nrow=length(yseq))
+knot_candidates8 <- matrix(NA, ncol=2, nrow=length(yseq))
+knot_candidates9 <- matrix(NA, ncol=2, nrow=length(yseq))
+
+sep_by <- seq(-3, 4, length.out=9)
+
+for(iter in 1:length(yseq)){
+  ytmp <- yseq[iter]
+  knot_candidates1[iter, ] <- c((ytmp-(y1*x2-y2*x1)/(x2-x1)+sep_by[1])/((y2-y1)/(x2-x1)), ytmp)
+  knot_candidates2[iter, ] <- c((ytmp-(y1*x2-y2*x1)/(x2-x1)+sep_by[2])/((y2-y1)/(x2-x1)), ytmp)
+  knot_candidates3[iter, ] <- c((ytmp-(y1*x2-y2*x1)/(x2-x1)+sep_by[3])/((y2-y1)/(x2-x1)), ytmp)
+  knot_candidates4[iter, ] <- c((ytmp-(y1*x2-y2*x1)/(x2-x1)+sep_by[4])/((y2-y1)/(x2-x1)), ytmp)
+  knot_candidates5[iter, ] <- c((ytmp-(y1*x2-y2*x1)/(x2-x1)+sep_by[5])/((y2-y1)/(x2-x1)), ytmp)
+  knot_candidates6[iter, ] <- c((ytmp-(y1*x2-y2*x1)/(x2-x1)+sep_by[6])/((y2-y1)/(x2-x1)), ytmp)
+  knot_candidates7[iter, ] <- c((ytmp-(y1*x2-y2*x1)/(x2-x1)+sep_by[7])/((y2-y1)/(x2-x1)), ytmp)
+  knot_candidates8[iter, ] <- c((ytmp-(y1*x2-y2*x1)/(x2-x1)+sep_by[8])/((y2-y1)/(x2-x1)), ytmp)
+  knot_candidates9[iter, ] <- c((ytmp-(y1*x2-y2*x1)/(x2-x1)+sep_by[9])/((y2-y1)/(x2-x1)), ytmp)
+}
+
+
+knot_candidates <- rbind(knot_candidates1, knot_candidates2, knot_candidates3, knot_candidates4, knot_candidates5, knot_candidates6, knot_candidates7, 
+                         knot_candidates8, knot_candidates9)
+
+library(ggplot2)
+plot(map_data("world2")[,1:2], xlim=c(29, 48), ylim=c(9, 34))
+# # abline(a=(y1*x2-y2*x1)/(x2-x1), b=(y2-y1)/(x2-x1))
+# abline(a=(y1*x2-y2*x1)/(x2-x1)-2.9, b=(y2-y1)/(x2-x1), col='red')
+# # abline(a=(y1*x2-y2*x1)/(x2-x1)-2.1, b=(y2-y1)/(x2-x1))
+# abline(a=(y1*x2-y2*x1)/(x2-x1)-1.3, b=(y2-y1)/(x2-x1), col='red')
+# # abline(a=(y1*x2-y2*x1)/(x2-x1)-0.5, b=(y2-y1)/(x2-x1))
+# abline(a=(y1*x2-y2*x1)/(x2-x1)+0.3, b=(y2-y1)/(x2-x1), col='red')
+# # abline(a=(y1*x2-y2*x1)/(x2-x1)+1.1, b=(y2-y1)/(x2-x1))
+# abline(a=(y1*x2-y2*x1)/(x2-x1)+1.9, b=(y2-y1)/(x2-x1), col='red')
+points(knot_candidates, pch=20, col='blue')
+
+# locator()
+x <- "32.45594 32.19852 32.27207 32.51111 33.30178 34.31311 35.23250 35.45315 36.62997 37.01611 38.59746 39.18586 41.22690 42.64276 43.47021 43.92990 43.35988 43.01052 43.01052 41.46595 40.71205 39.77427 39.35135 39.44329 38.46874 37.54935 37.40225 36.64835 36.18866 35.58186 35.10378 35.08539 35.34282 34.86474 34.57054 34.38666 34.07407 33.55921 32.91564 32.80531"
+y <- "30.19777 29.63211 29.25500 28.79708 27.66575 25.48390 23.94852 22.73638 21.79361 19.12690 17.37603 15.30193 13.98204 12.33892 11.53083 12.36586 14.43996 15.65210 16.94505 19.45014 20.20436 20.93164 21.90135 23.11349 24.21789 24.83742 25.59164 26.69604 27.55800 28.15060 28.52771 28.95870 29.92841 29.90147 29.38968 28.66240 28.23141 28.87789 29.84760 30.22471"
+polygon_data <- data.frame(x = as.numeric(strsplit(x, split = " ")[[1]]),
+                               y = as.numeric(strsplit(y, split = " ")[[1]]))
+polygon_data <- rbind(polygon_data, polygon_data[1,])
+ggplot(polygon_data) + geom_path(aes(x=x,y=y)) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+                                        color = "gray",  size = 0.5)+
+  xlim(29, 48) + ylim(9, 34)
+
+library(sp)
+which.in.polygon <- which(point.in.polygon(knot_candidates[,1], knot_candidates[,2], polygon_data$x, polygon_data$y)==1)
+knots <- knot_candidates[c(which.in.polygon, 
+                           which(knot_candidates[,1] >43.8 & knot_candidates[,1] < 44),
+                           which(knot_candidates[,1] >43.7 & knot_candidates[,1] < 43.8)), ]
+
+
+
+plot(map_data("world2")[,1:2], xlim=c(29, 48), ylim=c(9, 34))
+points(knots, pch=20, col="blue")
+
+
+
+###### ---------------------------------------------------------------------- ######
+###### ------------------------------ Radius -------------------------------- ######
+###### ---------------------------------------------------------------------- ######
+
+r <- 1.2
+dat <- cbind(circleFun(unlist(knots[1,]), diameter = r*2, npoints = 100), group=1)
+for(iter in 2:nrow(knots)){
+  dat <- rbind(dat, cbind(circleFun(unlist(knots[iter,]), diameter = r*2, npoints = 100), group=iter))
+}
+
+knots <- data.frame(knots)
+names(knots) <- c("lon", "lat")
+ggplot(knots) + geom_point(aes(x=lon, y=lat), shape='+', size=6, color='red') +
+  geom_path(data=dat, aes(x=x, y=y, group=factor(group))) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+            color = "gray",  size = 0.5) +
+  xlim(29, 48) + ylim(9, 34)
+
+###### ---------------------------------------------------------------------- ######
+###### ---------------------------- Setting up ------------------------------ ######
+###### ---------------------------------------------------------------------- ######
+k = nrow(knots)
+if(!exists('stations')) {
+  stations <- data.frame(new_loc)
+  rm(new_loc)}
 n.s <- nrow(stations)
-n.t <- 100 # n.t <- 500
+n.t <- ncol(X)
 
-eucD <- rdist(stations,as.matrix(knot))
+eucD <- rdist(stations,as.matrix(knots))
 
-W <- wendland(eucD,r=3)
+W <- wendland(eucD,r=r)
 dim(W)
 W <- sweep(W, 1, rowSums(W), FUN="/")
-points(stations[W[,1]>0,], pch=20, col='blue')
-points(stations[W[,25]>0,], pch=20, col='green')
-points(stations[W[,17]>0,], pch=20, col='orange')
-
-set.seed(12)
-theta_sim <- (sin(knot$x/2)*cos(knot$y/2)+1)/50
-theta_sim[theta_sim < 0.005] <- 0
-theta_sim <- matrix(rep(theta_sim, n.t), ncol=n.t)
-fields::image.plot(c(1,3,5,7,9), c(1,3,5,7,9), matrix(theta_sim[,1],5,5), col=terrain.colors(25))
 
 
-alpha = 0.5
-tau <- 1
-Z <- matrix(NA, nrow=k, ncol=n.t)
-X <- matrix(NA, nrow=n.s, ncol=n.t)
-Epsilon_frechet <- matrix(NA, nrow=n.s, ncol=n.t)
-for (iter in 1:n.t) {
-  for (i in 1:k) {
-    Z[i,iter] <- single_rejection_sampler(theta = theta_sim[i,iter])
-  }
-  # X[,iter] <- rfrechet(n.s,shape=(1/alpha)) * (rowSums(V[,iter]*(W^(1/alpha))))^alpha
-  Epsilon_frechet[,iter] <- rfrechet(n.s, shape=1, scale = tau)
-  X[,iter] <-  Epsilon_frechet[,iter]* ((W^(1/alpha))%*%Z[,iter])
-}
+ggplot(knots) + geom_point(aes(x=lon, y=lat), shape='+', size=6, color='red') +
+  geom_path(data=dat, aes(x=x, y=y, group=group)) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+            color = "gray",  size = 0.5) +
+  geom_point(data=stations[which(W[,1]>0),], aes(x = lon, y = lat), colour=scales::alpha("blue", 0.1))+
+  geom_point(data=stations[which(W[,5]>0),], aes(x = lon, y = lat), colour=scales::alpha("green", 0.1))+
+  geom_point(data=stations[which(W[,12]>0),], aes(x = lon, y = lat), colour=scales::alpha("yellow", 0.1))+
+  geom_point(data=stations[which(apply(W,1,function(x) any(is.na(x)))),], aes(x = lon, y = lat), colour="black")+
+  xlim(29, 48) + ylim(9, 34)
 
 
-ind=1
-spatial_map(stations, var=X[,ind], tight.brks = TRUE, title=paste0('Time replicate #', ind))
-
-y_true_star <-  (W^(1/alpha))%*%Z
-log_v <- 0
-for (i in 1:n.t) {
-  for (j in 1:k) {
-    log_v = log_v+f_H(Z[j,i],alpha = alpha,theta = theta_sim[j,i], log=TRUE)
-  }
-}
-
-part1 = sum((-2)*log(X)+log(y_true_star)) + (-tau*sum(X^(-1)*y_true_star)) # p(X_t=x_t|v_t)
-part2 = log_v  
-
-log(tau) + (part1 + part2)/(n.s*n.t) # -1.952435
+   
 
 
-
+tau <- 0.05; m <- 0.99; alpha <- 0.5
 ###### ---------------------------------------------------------------------- ######
 ###### ----------------------- First initial guess -------------------------- ######
 ###### ---------------------------------------------------------------------- ######
-Epsilon_frechet_indep <- matrix(rfrechet(n.s*n.t, shape=1, scale = tau), nrow=n.s)
+
+## -------------------- Initial guess for the latent Z variables --------------------
 W_alpha <- W^(1/alpha)
-average_epsilon <- rowMeans(Epsilon_frechet_indep) # average over time
-w_1 <- solve(t(W_alpha)%*%W_alpha)%*%t(W_alpha)%*%diag(1/average_epsilon)
-Z_approx <- w_1%*%X
-# Z_approx-Z
+Z_approx <- array(NA, dim=c(k, n.t))
+for (iter in 1:n.t){
+  cat('Finding good initial Z_t for time', iter, '\n')
+  Z_approx[,iter] <- relu(qr.solve(a=W_alpha, b=X[,iter]))
+}
+Y_star <- (W_alpha)%*%(Z_approx)
+Y_approx <- Y_star - relu(Y_star-X)
+ind <- 3
+tmp_range <- range(c(log(Y_approx[,ind])), log(X[,ind]))
+ggplot(stations) + geom_raster(aes(x=lon, y=lat, fill=log(X[,ind]))) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+            color = "gray",  size = 0.5) +
+  scale_fill_gradientn(colours = topo.colors(100), name = paste0('Original replicate #', ind), na.value = NA, limits=tmp_range) +
+  xlim(29, 48) + ylim(9, 34)
 
-b_1 <- matrix(rep(0,k), ncol=1) 
-w_2 <- diag(k)
-b_2 <- matrix(rep(0.00001,k), ncol=1)
-w_4 <- diag(k)
-b_4 <- matrix(rep(0,k), ncol=1) 
-w_3 <- 0*diag(k)
-b_3 <- matrix(rep(0.01,k), ncol=1)
+ggplot(stations) + geom_raster(aes(x=lon, y=lat, fill=log(Y_approx[,ind]))) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+            color = "gray",  size = 0.5) +
+  scale_fill_gradientn(colours = topo.colors(100), name = paste0('Smooth replicate #', ind), na.value = NA, limits=tmp_range) +
+  xlim(29, 48) + ylim(9, 34)
 
-## Change to torch tensor
+
+## -------------------- Initial values for the weights --------------------
+# Z = w_1 %*% X or Z^T = X^T %*% w_1^T
 X_tensor <- torch_tensor(X,dtype=torch_float())
 W_tensor <- torch_tensor(W,dtype=torch_float())
-
+tmp <- qr.solve(a=t(X), b=t(Z_approx))
+w_1 <- t(tmp)
 w_1 <- torch_tensor(w_1,dtype=torch_float(),requires_grad = TRUE)
-w_2 <- torch_tensor(w_2,dtype=torch_float(),requires_grad = TRUE)
-w_3 <- torch_tensor(w_3,dtype=torch_float(),requires_grad = TRUE)
-w_4 <- torch_tensor(w_4,dtype=torch_float(),requires_grad = TRUE)
+b_1 <- matrix(rep(0,k), ncol=1) 
 b_1 <- torch_tensor(b_1,dtype=torch_float(),requires_grad = TRUE)
+
+w_2 <- diag(k)
+w_2 <- torch_tensor(w_2,dtype=torch_float(),requires_grad = TRUE)
+b_2 <- matrix(rep(0.00001,k), ncol=1)
 b_2 <- torch_tensor(b_2,dtype=torch_float(),requires_grad = TRUE)
-b_3 <- torch_tensor(b_3,dtype=torch_float(),requires_grad = TRUE)
+
+w_4 <- diag(k)
+w_4 <- torch_tensor(w_4,dtype=torch_float(),requires_grad = TRUE)
+b_4 <- matrix(rep(0,k), ncol=1) 
 b_4 <- torch_tensor(b_4,dtype=torch_float(),requires_grad = TRUE)
+
+w_3 <- 0*diag(k)
+w_3 <- torch_tensor(w_3,dtype=torch_float(),requires_grad = TRUE)
+b_3 <- matrix(rep(-5,k), ncol=1)
+b_3 <- torch_tensor(b_3,dtype=torch_float(),requires_grad = TRUE)
+
 
 h <- w_1$mm(X_tensor)$add(b_1)$relu()
 h_1 <- w_2$mm(h)$add(b_2)$relu()
 sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
 mu <- w_4$mm(h_1)$add(b_4)$relu()
+
+## -------------------- Re-parameterization trick --------------------
 Epsilon <- matrix(abs(rnorm(k*n.t))+0.1, nrow=k)
 Epsilon <- torch_tensor(Epsilon,dtype=torch_float())
 v_t <- mu + sqrt(sigma_sq_vec)*Epsilon
+b_8 <- (as_array((W_tensor^(1/alpha))$mm(v_t))-X)
+b_8 <- torch_tensor(b_8,dtype=torch_float(),requires_grad = TRUE)
+b_8 <- -b_8$relu()
+
+y_approx <-  (W_tensor^(1/alpha))$mm(v_t) + b_8
 
 
-
-
-###### ---------------------------------------------------------------------- ######
-###### ---------------------- Second initial guess -------------------------- ######
-###### ---------------------------------------------------------------------- ######
-better_Z_approx <- matrix(data=NA, nrow=nrow(Z_approx), ncol=ncol(Z_approx))
-for(iter in 1:n.t){
-  cat('Finding good initial Z_t for time', iter, '\n')
-  tmp = as_array(v_t[,iter])
-  index = 1
-  while(any(tmp>1e4)){
-    cat('-- Bad initial Z_t from matrix projection', iter, '\n')
-    tmp = as_array(v_t[,iter+index])
-    index = index + 1
-  }
-  res <- optim(par=tmp, full_cond, W_alpha=W_alpha, X_t=X[,iter], tau=tau, gr=gradient_full_cond, method='CG',
-               control = list(fnscale=-1, trace=0, maxit=10000))
-  better_Z_approx[, iter] <- res$par
-}
-
-# Z = w_1 %*% X or Z^T = X^T %*% w_1^T
-tmp <- qr.solve(a=t(X), b=t(better_Z_approx))
-w_1 <- t(tmp)
-w_1 <- torch_tensor(w_1,dtype=torch_float(),requires_grad = TRUE)
-
-b_3 <- matrix(rep(-3,k), ncol=1)
-b_3 <- torch_tensor(b_3,dtype=torch_float(),requires_grad = TRUE)
-
-h <- w_1$mm(X_tensor)$add(b_1)$relu()
-h_1 <- w_2$mm(h)$add(b_2)$relu()
-sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
-mu <- w_4$mm(h_1)$add(b_4)$relu()
-v_t <- mu + sqrt(sigma_sq_vec)*Epsilon
-y_approx <-  (W_tensor^(1/alpha))$mm(v_t)
-
+## -------------------- Add in the Frechet noise --------------------
+Epsilon_frechet_indep <- matrix(rfrechet(n.s*n.t, location = m, shape=1, scale = tau), nrow=n.s)
 X_approx <- matrix(NA, nrow=n.s, ncol=n.t)
 for (iter in 1:n.t){
-  X_approx[,iter] <- as_array(Epsilon_frechet[,iter]* y_approx[,iter])
-  # cat(iter, as_array(mean(h)),as_array(mean(b_1)),b_1$storage()$data_ptr(),'\n')
+  X_approx[,iter] <- as_array(Epsilon_frechet_indep[,iter]* y_approx[,iter])
 }
 
-spatial_map(stations, var=X_approx[,ind], tight.brks = TRUE, 
-            title=paste0('Approx replicate #', ind), range = range(X_approx[,ind]),
-            q25 = quantile(X[,ind], probs = 0.25), q75=quantile(X[,ind], probs = 0.75))
-part1 = sum((-2)*log(X)+log(y_approx)) + (-tau*sum(X^(-1)*y_approx)) # p(X_t=x_t|v_t)
-(part1+part2)/(n.s*n.t) # -2.17531
-hist(as_array((-2)*log(X)+log(y_approx) -tau*X^(-1)*y_approx))
 
-## w_prime and b_prime for theta
+## -------------------- Visualize the X_approx --------------------
+ind <- 3
+tmp_range <- range(c(log(as_array(y_approx[,ind]))), log(X[,ind]))
+ggplot(stations) + geom_raster(aes(x=lon, y=lat, fill=log(X[,ind]))) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+            color = "gray",  size = 0.5) +
+  scale_fill_gradientn(colours = topo.colors(100), name = paste0('Original replicate #', ind), na.value = NA, limits=tmp_range) +
+  xlim(29, 48) + ylim(9, 34)
+
+ggplot(stations) + geom_raster(aes(x=lon, y=lat, fill=log(as_array(y_approx[,ind])))) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+            color = "gray",  size = 0.5) +
+  scale_fill_gradientn(colours = topo.colors(100), name = paste0('Smooth replicate #', ind), na.value = NA, limits=tmp_range) +
+  xlim(29, 48) + ylim(9, 34)
+
+ggplot(stations) + geom_raster(aes(x=lon, y=lat, fill=log(X_approx[,ind]))) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+            color = "gray",  size = 0.5) +
+  scale_fill_gradientn(colours = topo.colors(100), name = paste0('Approx replicate #', ind), na.value = NA, limits=tmp_range) +
+  xlim(29, 48) + ylim(9, 34)
+
+
+## -------------------- w_prime and b_prime for theta --------------------
 w_1_prime <- as_array(w_1) #matrix(rnorm(k*n.s,0,0.001), nrow=k)
 w_1_prime <- torch_tensor(w_1_prime,dtype=torch_float(),requires_grad = TRUE)
 w_2_prime <- matrix(diag(k), nrow=k)
@@ -209,6 +327,8 @@ b_5_velocity <- torch_zeros(b_5$size())
 b_6_velocity <- torch_zeros(b_6$size())
 b_7_velocity <- torch_zeros(b_7$size())
 
+b_8_velocity <- torch_zeros(b_8$size())
+
 Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
 Epsilon_prime <- torch_tensor(Epsilon_prime,dtype=torch_float())
 
@@ -228,16 +348,17 @@ Zolo_vec <- torch_tensor(matrix(vec, nrow=1,ncol=n), dtype=torch_float(), requir
 Zolo_vec_double <- torch_tensor(Zolo_vec, dtype = torch_float64(), requires_grad = FALSE)
 const <- 1/(1-alpha); const1 <- 1/(1-alpha)-1; const3 <- log(const1)
 const4 <- -2; const5 <- -1
+W_alpha_tensor <- W_tensor$pow(1/alpha)
 old_loss <- -Inf
 
-start_time <- Sys.time()
+# start_time <- Sys.time()
 for (t in 1:niter) {
   if(t==1000) { learning_rate <- -5e-9; alpha_v <- 0.9}
   if(t==5000) { learning_rate <- -1e-8; alpha_v <- 0.7}
   if(t==10000) { learning_rate <- -1e-8; alpha_v <- 0.5}
   if(t==20000) { learning_rate <- -2e-8; alpha_v <- 0.5}
   if(t==80000) { learning_rate <- -2e-8; alpha_v <- 0.4}
-  if(t==100000) { learning_rate <- -1e-8; alpha_v <- 0.4}
+  if(t==100000) { learning_rate <- -2e-8; alpha_v <- 0.4}
   if(t==120000) { learning_rate <- -2e-8; alpha_v <- 0.4}
   if(t==140000) { learning_rate <- -3e-8; alpha_v <- 0.4}
   if(t==300000) { learning_rate <- -2e-8; alpha_v <- 0.4}
@@ -254,6 +375,7 @@ for (t in 1:niter) {
   h_1 <- w_2$mm(h)$add(b_2)$relu()
   sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
   mu <- w_4$mm(h_1)$add(b_4)$relu()
+  
   ### -------- Encoder for v_t_prime --------
   h_prime <- w_1_prime$mm(X_tensor)$add(b_1_prime)$relu()
   h_1_prime <- w_2_prime$mm(h_prime)$add(b_2_prime)$relu()
@@ -266,39 +388,43 @@ for (t in 1:niter) {
     
   sigma_sq_vec_prime <- w_3_prime$mm(theta_propagate)$add(b_3_prime)$exp() #w_3_prime$mm(h_1_prime)$add(b_3_prime)$exp()
   mu_prime <- w_4_prime$mm(theta_propagate)$add(b_4_prime) #w_4_prime$mm(h_1_prime)$add(b_4_prime)
+  
   ### -------- Re-parameterization trick --------
   v_t <- mu + sqrt(sigma_sq_vec)*Epsilon
   v_t_prime <- mu_prime + sqrt(sigma_sq_vec_prime)*Epsilon_prime
+  
   
   ### -------- Decoder --------
   l <- w_5$mm(v_t_prime)$add(b_5)$relu()
   l_1 <- w_6$mm(l)$add(b_6)$relu()
   theta_t <- w_7$mm(l_1)$add(b_7)$relu()
   
-  y_star <- W_tensor$pow(1/alpha)$mm(v_t)
-  # log_v <- torch_zeros(c(k,n.t))
-  # for (i in 1:n.t) {
-  #   for (j in 1:k) {
-  #     tmp = const1 * v_t[j,i]^{-const} * Zolo_vec * exp(-v_t[j,i]^(-const1) * Zolo_vec)
-  #     log_v[j,i] = -theta_t[j,i]^alpha+log(tmp$mean()) - theta_t[j,i]*v_t[j,i] 
-  #   }
-  # }
+  y_star <- W_alpha_tensor$mm(v_t)$add(b_8)$relu()
+  
+  
+  ### -------- ELBO -------- 
+  ### Part 1
+  standardized <- X_tensor$divide(y_star) - m
+  part1 <- -2 * standardized$log()$sum() - y_star$log()$sum() - tau*standardized$pow(-1)$sum() # + n.s*n.t*log(tau)
+  
+  ### Part 2
   V_t <- v_t$view(c(k*n.t,1))
   Theta_t <- theta_t$view(c(k*n.t,1))
   part_log_v1  <- V_t$pow(-const)$mm(Zolo_vec) 
   part_log_v2  <- (-V_t$pow(-const1)$mm(Zolo_vec))$exp()
   part_log_v3 <- Theta_t$pow(alpha)-Theta_t$mul(V_t)
-  part2 <- (part_log_v1$mul(part_log_v2)$mean(dim=2)$log()+part_log_v3$view(2500)$add(const3))$sum()
+  part2 <- (part_log_v1$mul(part_log_v2)$mean(dim=2)$log()+part_log_v3$view(k*n.t)$add(const3))$sum()
   if(as_array(part2) == -Inf) {
     part2_tmp <- part_log_v1$mul(part_log_v2)$mean(dim=2)$log()
     tmp_ind <- which.min(as_array(part2_tmp))
     part2_tmp[tmp_ind] <- part_log_v1$log()[tmp_ind,1] + (-V_t$pow(-const1)$mm(Zolo_vec))[tmp_ind,1]
-    part2 <- (part2_tmp+part_log_v3$view(2500)$add(const3))$sum()
+    part2 <- (part2_tmp+part_log_v3$view(k*n.t)$add(const3))$sum()
   }
-  part1 = (X_tensor)$log()$sum()*const4 + y_star$log()$sum() - X_tensor$pow(const5)$mul(y_star)$sum()
-  # part2 = log_v$sum()                                                                        # p(v_t|theta_t), p(theta_t)
-  part4 = Epsilon$pow(2)$sum()/2 + Epsilon_prime$pow(2)$sum()/2 + sigma_sq_vec$log()$sum() + sigma_sq_vec_prime$log()$sum()
-  res <- part1 + part2 + part4
+  
+  ### Part 3
+  part3 = Epsilon$pow(2)$sum()/2 + Epsilon_prime$pow(2)$sum()/2 + sigma_sq_vec$log()$sum() + sigma_sq_vec_prime$log()$sum()
+  res <- part1 + part2 + part3
+  
   ### -------- compute loss -------- 
   loss <- (res/(n.s*n.t))
   if(!is.finite(loss$item())) break
@@ -388,8 +514,8 @@ for (t in 1:niter) {
   })
   
 }
-end_time <- Sys.time()
-end_time - start_time
+# end_time <- Sys.time()
+# end_time - start_time
 
 loss - part4/(n.s*n.t)
 plot(theta_sim[,1], as_array(theta_t[,3]), xlab=expression(paste('true ',theta)), ylab=expression(paste('CVAE ',theta)))
@@ -443,7 +569,7 @@ for(iter in 1:n.sim){
   l_1 <- w_6$mm(l)$add(b_6)$relu()
   theta_t <- w_7$mm(l_1)$add(b_7)$relu()
   
-  y_star <- (W_tensor^(1/alpha))$mm(v_t)
+  y_star <- W_alpha_tensor$mm(v_t)$add(b_8)$relu()
   
   ##Decoder
   station1_Simulations[, iter] <- rfrechet(n.s,shape=(1)) * as_array((y_star[,1]))
@@ -462,13 +588,13 @@ q75 <- quantile(X[,ind], 0.75)
 pal <- RColorBrewer::brewer.pal(9,"OrRd")
 plt3 <- spatial_map(stations, var=X[,ind], pal = pal,
                     title = paste0('Simulated replicate #', ind), legend.name = "Observed\n values", 
-                    brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75)
+                    brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75, pt.size=0.4)
 plt3
-ggsave("/Users/LikunZhang/Desktop/img1.png",width = 5.5, height = 5)
+# ggsave("/Users/LikunZhang/Desktop/img1.png",width = 5.5, height = 5)
 
 plt31 <- spatial_map(stations, var=station1_Simulations[,floor(n.sim/2)], pal = pal,
                      title = paste0('Emulated replicate #', ind), legend.name = "Emulated\n values", 
-                     brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75)
+                     brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75, pt.size=0.4)
 plt31
 ggsave("/Users/LikunZhang/Desktop/img2.png",width = 5.5, height = 5)
 
@@ -486,6 +612,36 @@ extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)],
                  xlim=c(0,7), ylim=c(0,7))
 
 
+
+ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=as_array(y_star[, 70]$log()))) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+            color = "gray",  size = 0.5) +
+  scale_fill_gradientn(colours = topo.colors(100), name = expression(log(Y[70])), na.value = NA, limits = c(-2,9)) +
+  xlim(29, 48) + ylim(9, 34)
+
+
+tmp_x <- rep(NA, n.s)
+for(iter in 1:nrow(X)){
+  beta_tmp <- fitted_gev_par$beta[iter]
+  tau_tmp <- fitted_gev_par$scale[iter]
+  xi_tmp <-  fitted_gev_par$shape[iter]
+  fitted_gev_par$beta <- fitted_gev_par$location - fitted_gev_par$scale/fitted_gev_par$shape
+  tmp_x[iter] <- beta_tmp - abs(xi_tmp)*as_array(y_star[iter, 70])^abs(xi_tmp)/tau_tmp
+}
+
+ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=tmp_x)) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+            color = "gray",  size = 0.5) +
+  scale_fill_gradientn(colours = topo.colors(100), name = expression(Emulation), na.value = NA) +
+  xlim(29, 48) + ylim(9, 34)
+
+ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=mon_max_allsites[,70])) +
+  geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
+            color = "gray",  size = 0.5) +
+  scale_fill_gradientn(colours = topo.colors(100), name = expression(Original), na.value = NA) +
+  xlim(29, 48) + ylim(9, 34)
+
+
 ## -------- time 55 --------
 ind <- 55
 range_t <- range(X[,ind])
@@ -495,13 +651,13 @@ q75 <- quantile(X[,ind], 0.75)
 pal <- RColorBrewer::brewer.pal(9,"OrRd")
 plt3 <- spatial_map(stations, var=X[,ind], pal = pal,
                     title = paste0('Simulated replicate #', ind), legend.name = "Observed\n values", 
-                    brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75)
+                    brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75, pt.size=0.4)
 plt3
 ggsave("/Users/LikunZhang/Desktop/img3.png",width = 5.5, height = 5)
 
 plt31 <- spatial_map(stations, var=station55_Simulations[,floor(n.sim/2)], pal = pal,
                      title = paste0('Emulated replicate #', ind), legend.name = "Emulated\n values", 
-                     brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75)
+                     brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75, pt.size=0.4)
 plt31
 ggsave("/Users/LikunZhang/Desktop/img4.png",width = 5.5, height = 5)
 
@@ -528,13 +684,13 @@ q75 <- quantile(X[,ind], 0.75)
 pal <- RColorBrewer::brewer.pal(9,"OrRd")
 plt3 <- spatial_map(stations, var=X[,ind], pal = pal,
                     title = paste0('Simulated replicate #', ind), legend.name = "Observed\n values", 
-                    brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75)
+                    brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75, pt.size=0.4)
 plt3
 ggsave("/Users/LikunZhang/Desktop/img3.png",width = 5.5, height = 5)
 
 plt31 <- spatial_map(stations, var=station70_Simulations[,floor(n.sim/2)], pal = pal,
                      title = paste0('Emulated replicate #', ind), legend.name = "Emulated\n values", 
-                     brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75)
+                     brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75, pt.size=0.4)
 plt31
 ggsave("/Users/LikunZhang/Desktop/img4.png",width = 5.5, height = 5)
 

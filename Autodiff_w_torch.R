@@ -88,27 +88,27 @@ b_4 <- matrix(apply(Z_approx,1, min), ncol=1)
 w_3 <- -0*diag(k)
 b_3 <- matrix(rep(0.01,k), ncol=1)
 
-X_tensor <- torch_tensor(X,dtype=torch_float())
-W_tensor <- torch_tensor(W,dtype=torch_float())
+X_tensor <- torch_tensor(X,dtype=torch_double())
+W_tensor <- torch_tensor(W,dtype=torch_double())
 
 ##### Phi #####
 # phi start values
 set.seed(123)
-w_1 <- torch_tensor(w_1,dtype=torch_float(),requires_grad = TRUE)
-w_2 <- torch_tensor(w_2,dtype=torch_float(),requires_grad = TRUE)
-w_3 <- torch_tensor(w_3,dtype=torch_float(),requires_grad = TRUE)
-w_4 <- torch_tensor(w_4,dtype=torch_float(),requires_grad = TRUE)
-b_1 <- torch_tensor(b_1,dtype=torch_float(),requires_grad = TRUE)
-b_2 <- torch_tensor(b_2,dtype=torch_float(),requires_grad = TRUE)
-b_3 <- torch_tensor(b_3,dtype=torch_float(),requires_grad = TRUE)
-b_4 <- torch_tensor(b_4,dtype=torch_float(),requires_grad = TRUE)
+w_1 <- torch_tensor(w_1,dtype=torch_double(),requires_grad = TRUE)
+w_2 <- torch_tensor(w_2,dtype=torch_double(),requires_grad = TRUE)
+w_3 <- torch_tensor(w_3,dtype=torch_double(),requires_grad = TRUE)
+w_4 <- torch_tensor(w_4,dtype=torch_double(),requires_grad = TRUE)
+b_1 <- torch_tensor(b_1,dtype=torch_double(),requires_grad = TRUE)
+b_2 <- torch_tensor(b_2,dtype=torch_double(),requires_grad = TRUE)
+b_3 <- torch_tensor(b_3,dtype=torch_double(),requires_grad = TRUE)
+b_4 <- torch_tensor(b_4,dtype=torch_double(),requires_grad = TRUE)
 
 h <- w_1$mm(X_tensor)$add(b_1)$relu()
 h_1 <- w_2$mm(h)$add(b_2)$relu()
 sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
 mu <- w_4$mm(h_1)$add(b_4)$relu()
 Epsilon <- matrix(abs(rnorm(k*n.t))+0.1, nrow=k)
-Epsilon <- torch_tensor(Epsilon,dtype=torch_float())
+Epsilon <- torch_tensor(Epsilon,dtype=torch_double())
 v_t <- mu + sqrt(sigma_sq_vec)*Epsilon
 y_approx <-  (W_tensor^(1/alpha))$mm(v_t)
 
@@ -116,45 +116,47 @@ y_approx <-  (W_tensor^(1/alpha))$mm(v_t)
 X_approx <- matrix(NA, nrow=n.s, ncol=n.t)
 for (iter in 1:n.t){
   X_approx[,iter] <- as_array(Epsilon_frechet[,iter]* y_approx[,iter])
-  # cat(iter, as_array(mean(h)),as_array(mean(b_1)),b_1$storage()$data_ptr(),'\n')
 }
 
 spatial_map(stations, var=X_approx[,ind], tight.brks = TRUE, 
             title=paste0('Approx replicate #', ind), range = range(X_approx[,ind]),
             q25 = quantile(X[,ind], probs = 0.25), q75=quantile(X[,ind], probs = 0.75))
+
 part1 = sum((-2)*log(X)+log(y_approx)) + (-sum(X^(-1)*y_approx)) # p(X_t=x_t|v_t)
+
 (part1+part2)/(n.s*n.t) # -45.5029
 
 
+
 w_1_prime <- matrix(rnorm(k*n.s,0,0.001), nrow=k)
-w_1_prime <- torch_tensor(w_1_prime,dtype=torch_float(),requires_grad = TRUE)
+w_1_prime <- torch_tensor(w_1_prime,dtype=torch_double(),requires_grad = TRUE)
 w_2_prime <- matrix(rnorm(k*k,0,0.001), nrow=k)
-w_2_prime <- torch_tensor(w_2_prime,dtype=torch_float(),requires_grad = TRUE)
+w_2_prime <- torch_tensor(w_2_prime,dtype=torch_double(),requires_grad = TRUE)
 w_3_prime <- matrix(rep(0,k*k), nrow=k)
-w_3_prime <- torch_tensor(w_3_prime,dtype=torch_float(),requires_grad = TRUE)
+w_3_prime <- torch_tensor(w_3_prime,dtype=torch_double(),requires_grad = TRUE)
 w_4_prime <- matrix(rnorm(k*k,0,0.001), nrow=k)
-w_4_prime <- torch_tensor(w_4_prime,dtype=torch_float(),requires_grad = TRUE)
+w_4_prime <- torch_tensor(w_4_prime,dtype=torch_double(),requires_grad = TRUE)
 b_1_prime <- matrix(rnorm(k), ncol=1)
-b_1_prime <- torch_tensor(b_1_prime,dtype=torch_float(),requires_grad = TRUE)
+b_1_prime <- torch_tensor(b_1_prime,dtype=torch_double(),requires_grad = TRUE)
 b_2_prime <- matrix(rnorm(k), ncol=1)
-b_2_prime <- torch_tensor(b_2_prime,dtype=torch_float(),requires_grad = TRUE)
+b_2_prime <- torch_tensor(b_2_prime,dtype=torch_double(),requires_grad = TRUE)
 b_3_prime <- matrix(rep(0.001,k), ncol=1)
-b_3_prime <- torch_tensor(b_3_prime,dtype=torch_float(),requires_grad = TRUE)
+b_3_prime <- torch_tensor(b_3_prime,dtype=torch_double(),requires_grad = TRUE)
 b_4_prime <- matrix(runif(k,10,20), ncol=1)
-b_4_prime <- torch_tensor(b_4_prime,dtype=torch_float(),requires_grad = TRUE)
+b_4_prime <- torch_tensor(b_4_prime,dtype=torch_double(),requires_grad = TRUE)
 
 w_5 <- matrix(rnorm(k*k,0,0.001), nrow=k)
-w_5 <- torch_tensor(w_5,dtype=torch_float(),requires_grad = TRUE)
+w_5 <- torch_tensor(w_5,dtype=torch_double(),requires_grad = TRUE)
 w_6 <- matrix(rnorm(k*k,0,0.001), nrow=k)
-w_6 <- torch_tensor(w_6,dtype=torch_float(),requires_grad = TRUE)
+w_6 <- torch_tensor(w_6,dtype=torch_double(),requires_grad = TRUE)
 w_7 <- matrix(rnorm(k*k,0,0.0001), nrow=k)
-w_7 <- torch_tensor(w_7,dtype=torch_float(),requires_grad = TRUE)
+w_7 <- torch_tensor(w_7,dtype=torch_double(),requires_grad = TRUE)
 b_5 <- matrix(rnorm(k), ncol=1)
-b_5 <- torch_tensor(b_5,dtype=torch_float(),requires_grad = TRUE)
+b_5 <- torch_tensor(b_5,dtype=torch_double(),requires_grad = TRUE)
 b_6 <- matrix(rnorm(k), ncol=1)
-b_6 <- torch_tensor(b_6,dtype=torch_float(),requires_grad = TRUE)
+b_6 <- torch_tensor(b_6,dtype=torch_double(),requires_grad = TRUE)
 b_7 <- matrix(rnorm(k,0,0.0001), ncol=1)
-b_7 <- torch_tensor(b_7,dtype=torch_float(),requires_grad = TRUE)
+b_7 <- torch_tensor(b_7,dtype=torch_double(),requires_grad = TRUE)
 
 w_1_velocity <- torch_zeros(w_1$size())
 w_2_velocity <- torch_zeros(w_2$size())
@@ -179,43 +181,75 @@ w_7_velocity <- torch_zeros(w_7$size())
 b_5_velocity <- torch_zeros(b_5$size())
 b_6_velocity <- torch_zeros(b_6$size())
 b_7_velocity <- torch_zeros(b_7$size())
+# w_1 <- torch_tensor(torch_normal(0,0.001, size = c(n.s,k)),requires_grad = TRUE)
+# w_2 <- torch_tensor(torch_normal(0,0.001, size = c(k,k)),requires_grad = TRUE)
+# w_3 <- torch_tensor(torch_normal(0,0.001, size = c(k,k)),requires_grad = TRUE)
+# w_4 <- torch_tensor(torch_normal(0,0.001, size = c(k,k)),requires_grad = TRUE)
+# b_1 <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
+# b_2 <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
+# b_3 <- torch_tensor(torch_normal(0,0.001, size = c(1,k)),requires_grad = TRUE)
+# b_4 <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
+# nn_init_uniform_(b_4,-0.001,0.001)
+# 
+# w_1_prime <- torch_tensor(torch_normal(0,0.001, size = c(n.s,k)),requires_grad = TRUE)
+# w_2_prime <- torch_tensor(torch_normal(0,0.001, size = c(k,k)),requires_grad = TRUE)
+# w_3_prime <- torch_tensor(torch_normal(0,0.001, size = c(k,k)),requires_grad = TRUE)
+# w_4_prime <- torch_tensor(torch_normal(0,0.001, size = c(k,k)),requires_grad = TRUE)
+# b_1_prime <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
+# b_2_prime <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
+# b_3_prime <- torch_tensor(torch_normal(0,0.001, size = c(1,k)),requires_grad = TRUE)
+# b_4_prime <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
+# nn_init_uniform_(b_4_prime,10,20)
+# 
+# w_5 <- torch_tensor(torch_normal(0,0.001, size = c(k,k)),requires_grad = TRUE)
+# w_6 <- torch_tensor(torch_normal(0,0.001, size = c(k,k)),requires_grad = TRUE)
+# w_7 <- torch_tensor(torch_normal(0,0.001, size = c(1,n.t)),requires_grad = TRUE)
+# b_5 <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
+# b_6 <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
+# b_7 <- torch_tensor(torch_normal(0,1, size = c(1,k)),requires_grad = TRUE)
 
 Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
 
-Epsilon_prime <- torch_tensor(Epsilon_prime,dtype=torch_float())
+Epsilon_prime <- torch_tensor(Epsilon_prime,dtype=torch_double())
+
 ###### Loss and Optimization ######
 
 ### network parameters ---------------------------------------------------------
 
 learning_rate <- -1e-12
 alpha_v <- 0.9
+# learning_rate <- -5e-12
+# alpha_v <- 0.9
+# learning_rate <- -1e-11
+# alpha_v <- 0.9
+# learning_rate <- -2e-11
+# alpha_v <- 0.7
+# learning_rate <- -5e-11
+# alpha_v <- 0.7
 
-niter = 400000
+niter = 100000
 n <- 1e3
 # only depends on alpha; we are not updating alpha for now.
 vec <- Zolo_A(pi*seq(1/2,n-1/2,1)/n, alpha)
-Zolo_vec <- torch_tensor(matrix(vec, nrow=1,ncol=n), dtype=torch_float(), requires_grad = FALSE) 
-Zolo_vec_double <- torch_tensor(Zolo_vec, dtype = torch_float64(), requires_grad = FALSE)
+Zolo_vec <- torch_tensor(matrix(vec, nrow=1,ncol=n), dtype=torch_double(), requires_grad = FALSE) 
 const <- 1/(1-alpha); const1 <- 1/(1-alpha)-1; const3 <- log(const1)
 const4 <- -2; const5 <- -1
 old_loss <- -Inf
 
-
-
+learning_rate <- -8e-11; alpha_v <- 0.7
 for (t in 1:niter) {
-  if(t==1000) { learning_rate <- -5e-12; alpha_v <- 0.9}
-  if(t==20000) { learning_rate <- -1e-11; alpha_v <- 0.7}
-  if(t==50000) { learning_rate <- -4e-11; alpha_v <- 0.5}
-  if(t==90000) { learning_rate <- -7e-11; alpha_v <- 0.5}
-  if(t==200000) { learning_rate <- -1e-10; alpha_v <- 0.4}
+  if(niter==1000) { learning_rate <- -5e-12 }
+  if(niter==3000) { learning_rate <- -1e-11 }
+  if(niter==5000) { learning_rate <- -2e-11; alpha_v <- 0.7}
+  if(niter==10000) { learning_rate <- -5e-11; alpha_v <- 0.7}
   
   ### -------- Forward pass --------
   Epsilon <- t(0.1+abs(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k)))))
   Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
 
-  Epsilon <- torch_tensor(Epsilon,dtype=torch_float())
-  Epsilon_prime <- torch_tensor(Epsilon_prime,dtype=torch_float())
-
+  Epsilon <- torch_tensor(Epsilon,dtype=torch_double())
+  Epsilon_prime <- torch_tensor(Epsilon_prime,dtype=torch_double())
+  
   ## Encoder for v_t
   h <- w_1$mm(X_tensor)$add(b_1)$relu()
   h_1 <- w_2$mm(h)$add(b_2)$relu()
@@ -248,21 +282,14 @@ for (t in 1:niter) {
   Theta_t <- theta_t$view(c(k*n.t,1))
   part_log_v1  <- V_t$pow(-const)$mm(Zolo_vec) 
   part_log_v2  <- (-V_t$pow(-const1)$mm(Zolo_vec))$exp()
-  part_log_v3 <- Theta_t$pow(alpha)-Theta_t$mul(V_t)
+  part_log_v3 <- -Theta_t$pow(alpha)-Theta_t$mul(V_t)
   part2 <- (part_log_v1$mul(part_log_v2)$mean(dim=2)$log()+part_log_v3$view(2500)$add(const3))$sum()
-  if(as_array(part2) == -Inf) {
-    V_t_double <- torch_tensor(V_t, dtype=torch_float64(), requires_grad = TRUE)
-    Zolo_vec_double <- torch_tensor(Zolo_vec, dtype = torch_float64(), requires_grad = FALSE)
-    part_log_V1  <- V_t_double$pow(-const)$mm(Zolo_vec_double) 
-    part_log_V2  <- (-V_t_double$pow(-const1)$mm(Zolo_vec_double))$exp()
-    part_log_V3 <- Theta_t$pow(alpha)-Theta_t$mul(V_t_double)
-    part2_double <- (part_log_V1$mul(part_log_V2)$mean(dim=2)$log()+part_log_V3$view(2500)$add(const3))$sum()
-    part2 <- torch_tensor(as_array(part2_double), dtype=torch_float(), requires_grad = TRUE)
-  }
+
   part1 = (X_tensor)$log()$sum()*const4 + y_star$log()$sum() - X_tensor$pow(const5)$mul(y_star)$sum()
   # part2 = log_v$sum()                                                                        # p(v_t|theta_t), p(theta_t)
   part4 = Epsilon$pow(2)$sum()/2 + Epsilon_prime$pow(2)$sum()/2 + sigma_sq_vec$log()$sum() + sigma_sq_vec_prime$log()$sum()
   res <- part1 + part2 + part4
+  
   ### -------- compute loss -------- 
   loss <- (res/(n.s*n.t))
   if(!is.finite(loss$item())) break
@@ -280,6 +307,14 @@ for (t in 1:niter) {
   # Wrap in with_no_grad() because this is a part we DON'T 
   # want to record for automatic gradient computation
   with_no_grad({
+    # if(t>190 & learning_rate> -1e-7) {
+    #   learning_rate <- -1e-2
+    #   cat('Learing rate is now ', learning_rate, '\n')
+    # }
+    # if(t>2 & abs(loss$item()-old_loss)<0.002)  {
+    #   learning_rate <- learning_rate*alpha_v*0.1;
+    #   cat('Learing rate is now ', learning_rate, '\n')
+    # }
     old_loss <- loss$item()
     w_1_velocity <- alpha_v*w_1_velocity - learning_rate*w_1$grad
     w_1$add_(w_1_velocity)
@@ -449,8 +484,8 @@ for(iter in 1:n.sim){
   Epsilon <- t(0.1+abs(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k)))))
   Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
   
-  Epsilon <- torch_tensor(Epsilon, dtype=torch_float())
-  Epsilon_prime <- torch_tensor(Epsilon_prime, dtype=torch_float())
+  Epsilon <- torch_tensor(Epsilon, dtype=torch_double())
+  Epsilon_prime <- torch_tensor(Epsilon_prime, dtype=torch_double())
   
   ## re-parameterization trick
   v_t <- mu + sqrt(sigma_sq_vec)*Epsilon

@@ -3,11 +3,11 @@ model {
   for (i in 1:n) { y[i] ~ dnorm(mu[i],tau) } ## response 
   scale <- 1/tau ## convert tau to standard GLM scale
   tau ~ dgamma(.05,.005) ## precision parameter prior 
-  ## Parametric effect priors CHECK tau=1/10^2 is appropriate!
-  for (i in 1:6) { b[i] ~ dnorm(0,0.01) }
+  ## Parametric effect priors CHECK tau=1/18^2 is appropriate!
+  for (i in 1:6) { b[i] ~ dnorm(0,0.0031) }
   ## prior for s(longitude,latitude)... 
-  for (i in 7:103) { b[i] ~ dnorm(0, lambda[1]) }
-  for (i in 104:105) { b[i] ~ dnorm(0, lambda[2]) }
+  for (i in c(7:103)) { b[i] ~ dnorm(0, lambda[1]) }
+  for (i in c(104:105)) { b[i] ~ dnorm(0, lambda[2]) }
   ## smoothing parameter priors CHECK...
   for (i in 1:2) {
     lambda[i] ~ dgamma(.05,.005)

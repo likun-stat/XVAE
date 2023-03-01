@@ -161,17 +161,17 @@ single_rejection_sampler_alpha_not_half = function(theta=theta, alpha){
 #################################################################################
 ##  --------------------------- v_t initial values   ----------------------------
 #################################################################################
-full_cond <- function(v_t, W_alpha, X_t){
+full_cond <- function(v_t, W_alpha, X_t, tau){
   Y_t <- (W_alpha)%*%(v_t)
   if(any(Y_t<0)) return(-1e5)
-  return(mean(log(Y_t)) - mean(X_t^(-1)*Y_t))
+  return(mean(log(Y_t)) - tau*mean(X_t^(-1)*Y_t))
 }
 
-gradient_full_cond <-  function(v_t, W_alpha, X_t){
+gradient_full_cond <-  function(v_t, W_alpha, X_t, tau){
   res <- rep(NA, ncol(W_alpha))
   Y_t <- (W_alpha)%*%(v_t)
   for (iter in 1:ncol(W_alpha)){
-    res[iter] <- sum(W_alpha[,iter]/Y_t) -sum(W_alpha[,iter]/X_t)
+    res[iter] <- sum(W_alpha[,iter]/Y_t) -tau*sum(W_alpha[,iter]/X_t)
   }
   return(res)
 }
@@ -184,6 +184,15 @@ gradient_full_cond <-  function(v_t, W_alpha, X_t){
 #################################################################################
 ##  ------------------------ Plot pretty spatial maps ---------------------------
 #################################################################################
+circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
+  r = diameter / 2
+  tt <- seq(0,2*pi,length.out = npoints)
+  xx <- center[1] + r * cos(tt)
+  yy <- center[2] + r * sin(tt)
+  return(data.frame(x = xx, y = yy))
+}
+
+
 spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd"), 
                         title='spatial map', legend.name='val', show.legend=TRUE,
                         xlab='x', ylab='y',
