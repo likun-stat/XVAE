@@ -392,7 +392,7 @@ end_time <- Sys.time()
 end_time - start_time
 
 loss - part4/(n.s*n.t)
-plot(theta_sim[,1], as_array(theta_t[,3]), xlab=expression(paste('true ',theta)), ylab=expression(paste('CVAE ',theta)))
+plot(theta_sim[,1], as_array(theta_t[,20]), xlab=expression(paste('true ',theta)), ylab=expression(paste('CVAE ',theta)), xlim=c(0,0.05), ylim=c(0,0.05))
 abline(a = 0, b = 1, col='orange', lty=2)
 
 
@@ -483,7 +483,7 @@ extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)],
 extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)], 
                  xlab=expression(paste('Simulated ', X[1])), 
                  ylab=expression(paste('Emulated ', X[1])), 
-                 xlim=c(0,7), ylim=c(0,7))
+                 xlim=c(0,7), ylim=c(0,7), regress = FALSE)
 
 
 ## -------- time 55 --------
@@ -516,7 +516,7 @@ extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)],
 extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)], 
                  xlab=expression(paste('Simulated ', X[55])), 
                  ylab=expression(paste('Emulated ', X[55])), 
-                 xlim=c(0,7), ylim=c(0,7))
+                 xlim=c(0,7), ylim=c(0,7), regress=FALSE)
 
 
 ## -------- time 70 --------
@@ -549,7 +549,7 @@ extRemes::qqplot(X[,ind], station70_Simulations[,floor(n.sim/2)],
 extRemes::qqplot(X[,ind], station70_Simulations[,floor(n.sim/2)], 
                  xlab=expression(paste('Simulated ', X[70])), 
                  ylab=expression(paste('Emulated ', X[70])), 
-                 xlim=c(0,7), ylim=c(0,7))
+                 xlim=c(0,7), ylim=c(0,7), regress=FALSE)
 
 
 ## -------- time 100 --------

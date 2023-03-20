@@ -10,7 +10,8 @@ relu <- function(x){
 wendland <- function (d,r) {
   if (any(d < 0)) 
     stop("d must be nonnegative")
-  return(((r - d)^4 * (4 * d + r)) * (d < r)) # s = 2; k = 1
+  # return(((1 - d/r)^6 * (6 * d/r + 1)) * (d < r)) # s = 2; k = 1
+  return((1 - d/r)^2 * (d < r)) # s = 2; k = 1
 }
 
 sinc <- function(x) {
@@ -207,7 +208,7 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
                         brks.round = 2, tight.brks = FALSE,
                         conus_fill = "white", 
                         border.wd = 0.2, pt.size = 3, shp = 16,
-                        range=NULL, q25=NULL, q75=NULL){
+                        range=NULL, q25=NULL, q75=NULL, raster=TRUE){
   require(ggplot2);require(ggh4x)
   if(colnames(stations)[1]!='x') colnames(stations)=c('x', 'y')
   if(is.null(var)) show.legend=FALSE
@@ -242,7 +243,8 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
                             labels = col.labels ) 
   gd <- guides(color = guide_legend( reverse = TRUE, override.aes = list(size=5) ))
   
-  plt1 <- ggplot(stations) +
+  if(!raster) {
+    plt1 <- ggplot(stations) +
     geom_point(size = pt.size, shape = shp, aes( x = x, y = y, color = color.use ), na.rm = TRUE) +
     ylab(ylab) + xlab(xlab)  + sc + gd +
     theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
@@ -253,6 +255,19 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
     ggtitle(title) +
     force_panelsizes(rows = unit(3.75, "in"),
                      cols = unit(3.75, "in"))
+  }else{
+    plt1 <- ggplot(stations) +
+      geom_raster(aes( x = x, y = y, fill = var), na.rm = TRUE) +
+      ylab(ylab) + xlab(xlab)  + scale_fill_gradientn(name=legend.name, colors = pal, limits = range) + gd +
+      theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
+            plot.title = element_text(hjust = 0.5, size=14),
+            legend.text=element_text(size=12), legend.title=element_text(size=13),
+            axis.text=element_text(size=13), axis.title.y=element_text(size=14), 
+            axis.title.x=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)))+
+      ggtitle(title) +
+      force_panelsizes(rows = unit(3.75, "in"),
+                       cols = unit(3.75, "in"))
+  }
   return(plt1)
 }
 
