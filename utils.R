@@ -170,17 +170,20 @@ marginal_thetavec <- function(x,L=L,theta=theta,alpha=alpha,k_l=k_l){
 #################################################################################
 ##  --------------------------- v_t initial values   ----------------------------
 #################################################################################
-full_cond <- function(v_t, W_alpha, X_t, tau){
+full_cond <- function(v_t, W_alpha, X_t, tau, m){
   Y_t <- (W_alpha)%*%(v_t)
-  if(any(Y_t<0)) return(-1e5)
-  return(mean(log(Y_t)) - tau*mean(X_t^(-1)*Y_t))
+  tmp <- 1/(X_t/Y_t-m)
+  if(any(tmp<=0)) return(-1e5)
+  return(-mean(log(Y_t)) + 2*mean(log(tmp))- tau*mean(tmp))
 }
 
-gradient_full_cond <-  function(v_t, W_alpha, X_t, tau){
+gradient_full_cond <-  function(v_t, W_alpha, X_t, tau, m){
   res <- rep(NA, ncol(W_alpha))
   Y_t <- (W_alpha)%*%(v_t)
+  tmp <- 1/(X_t/Y_t-m)
   for (iter in 1:ncol(W_alpha)){
-    res[iter] <- sum(W_alpha[,iter]/Y_t) -tau*sum(W_alpha[,iter]/X_t)
+    tmp2 <- X_t*W_alpha[,iter]/Y_t^2
+    res[iter] <- mean(2*tmp*tmp2 - W_alpha[,iter]/Y_t- tau*tmp^2*tmp2)
   }
   return(res)
 }

@@ -202,7 +202,7 @@ ggplot(knots) + geom_point(aes(x=lon, y=lat), shape='+', size=6, color='red') +
    
 
 
-tau <- 0.05; m <- 0.989; alpha <- 0.5
+alpha = 0.5; tau <- 0.1; m <- 0.85
 ###### ---------------------------------------------------------------------- ######
 ###### ----------------------- First initial guess -------------------------- ######
 ###### ---------------------------------------------------------------------- ######
@@ -606,7 +606,7 @@ for(iter in 1:n.sim){
   l_1 <- w_6$mm(l)$add(b_6)$relu()
   theta_t <- w_7$mm(l_1)$add(b_7)$relu()
   
-  y_star <- W_alpha_tensor$mm(v_t)$add(b_8)$relu()
+  y_star <- lrelu(W_alpha_tensor$mm(v_t)$add(b_8))
   
   ##Decoder
   station1_Simulations[, iter] <- rfrechet(n.s,shape=1, location = m, scale = tau) * as_array((y_star[,1]))

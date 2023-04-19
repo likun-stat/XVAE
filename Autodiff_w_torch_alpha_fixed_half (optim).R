@@ -20,7 +20,6 @@ n.t <- 100 # n.t <- 500
 eucD <- rdist(stations,as.matrix(knot))
 
 W <- wendland(eucD,r=3)
-dim(W)
 W <- sweep(W, 1, rowSums(W), FUN="/")
 points(stations[W[,1]>0,], pch=20, col='blue')
 points(stations[W[,25]>0,], pch=20, col='green')
@@ -34,7 +33,9 @@ fields::image.plot(c(1,3,5,7,9), c(1,3,5,7,9), matrix(theta_sim[,1],5,5), col=te
 
 
 alpha = 0.5
-tau <- 1
+tau <- 0.05
+m <- 0.989
+
 Z <- matrix(NA, nrow=k, ncol=n.t)
 X <- matrix(NA, nrow=n.s, ncol=n.t)
 Epsilon_frechet <- matrix(NA, nrow=n.s, ncol=n.t)
@@ -43,7 +44,7 @@ for (iter in 1:n.t) {
     Z[i,iter] <- single_rejection_sampler(theta = theta_sim[i,iter])
   }
   # X[,iter] <- rfrechet(n.s,shape=(1/alpha)) * (rowSums(V[,iter]*(W^(1/alpha))))^alpha
-  Epsilon_frechet[,iter] <- rfrechet(n.s, shape=1, scale = tau)
+  Epsilon_frechet[,iter] <- rfrechet(n.s, shape=1, scale = tau, location = m)
   X[,iter] <-  Epsilon_frechet[,iter]* ((W^(1/alpha))%*%Z[,iter])
 }
 
@@ -473,14 +474,14 @@ plt31
 ggsave("/Users/LikunZhang/Desktop/img2.png",width = 5.5, height = 5)
 
 ind <- 1
-extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[1])), 
                  ylab=expression(paste('Emulated ', X[1])))
-extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[1])), 
                  ylab=expression(paste('Emulated ', X[1])), 
                  xlim=c(0,500), ylim=c(0,500))
-extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station1_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[1])), 
                  ylab=expression(paste('Emulated ', X[1])), 
                  xlim=c(0,7), ylim=c(0,7), regress = FALSE)
@@ -506,14 +507,14 @@ plt31
 ggsave("/Users/LikunZhang/Desktop/img4.png",width = 5.5, height = 5)
 
 ind=55
-extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[55])), 
                  ylab=expression(paste('Emulated ', X[55])))
-extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[55])), 
                  ylab=expression(paste('Emulated ', X[55])), 
                  xlim=c(0,500), ylim=c(0,500))
-extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station55_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[55])), 
                  ylab=expression(paste('Emulated ', X[55])), 
                  xlim=c(0,7), ylim=c(0,7), regress=FALSE)
@@ -539,14 +540,14 @@ plt31
 ggsave("/Users/LikunZhang/Desktop/img4.png",width = 5.5, height = 5)
 
 ind=70
-extRemes::qqplot(X[,ind], station70_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station70_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[70])), 
                  ylab=expression(paste('Emulated ', X[70])))
-extRemes::qqplot(X[,ind], station70_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station70_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[70])), 
                  ylab=expression(paste('Emulated ', X[70])), 
                  xlim=c(0,500), ylim=c(0,500))
-extRemes::qqplot(X[,ind], station70_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station70_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[70])), 
                  ylab=expression(paste('Emulated ', X[70])), 
                  xlim=c(0,7), ylim=c(0,7), regress=FALSE)
@@ -573,14 +574,14 @@ ggsave("/Users/LikunZhang/Desktop/img6.png",width = 5.5, height = 5)
 
 quantile(X[,ind],prob=0.95)
 ind=100
-extRemes::qqplot(X[,ind], station100_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station100_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[100])), 
                  ylab=expression(paste('Emulated ', X[100])))
-extRemes::qqplot(X[,ind], station100_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station100_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[100])), 
                  ylab=expression(paste('Emulated ', X[100])), 
                  xlim=c(0,500), ylim=c(0,500))
-extRemes::qqplot(X[,ind], station100_Simulations[,floor(n.sim/2)], 
+extRemes::qqplot(X[,ind], station100_Simulations[,floor(n.sim/2)], regress = FALSE,  
                  xlab=expression(paste('Simulated ', X[100])), 
                  ylab=expression(paste('Emulated ', X[100])), 
                  xlim=c(0,7), ylim=c(0,7))
