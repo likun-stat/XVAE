@@ -131,17 +131,31 @@ for(iter in 1:n.t){
   tmp <- 1/(X[,iter]/Y_t_tmp-m)
   index <- 1
   while(any(tmp < 0)){
-    if(index < 2) cat('-- Bad initial Z_t from matrix projection', iter, '\n')
+    # if(index < 2) cat('-- Bad initial Z_t from matrix projection', iter, '\n')
     initial_Z_t = Z_approx[,iter]/(11+index)
     Y_t_tmp <- (W_alpha)%*%initial_Z_t
     tmp <- 1/(X[,iter]/Y_t_tmp-m)
     index <- index + 1
   }
   if(any(tmp == 0)) initial_Z_t <- rep(0.1,k)
-  res <- optim(par=initial_Z_t, full_cond, W_alpha=W_alpha, X_t=X[,iter], tau=tau, m=m, gr=gradient_full_cond, method='CG',
-               control = list(fnscale=-1, trace=0, maxit=10000))
-  better_Z_approx[, iter] <- res$par
+  if(any(initial_Z_t == 0)){
+    res <- optim(par=initial_Z_t, full_cond, W_alpha=W_alpha, X_t=X[,iter], tau=tau, m=m, gr=gradient_full_cond, method='CG',
+                 control = list(fnscale=-1, trace=0, maxit=5000))
+    initial_Z_t <- res$par
+  }
+  out <- tryCatch({ res <- optim(par=log(initial_Z_t), full_cond_logscale, W_alpha=W_alpha, X_t=X[,iter], tau=tau, m=m, gr=gradient_full_cond_logscale, method='CG',
+                          control = list(fnscale=-1, trace=0, maxit=10000))
+                        out <- exp(res$par)}, 
+           error = function(e) {cat('-- Switching to orginal scale for time', iter, '\n')
+                    res <- optim(par=initial_Z_t, full_cond, W_alpha=W_alpha, X_t=X[,iter], tau=tau, m=m, gr=gradient_full_cond, method='CG',
+                                 control = list(fnscale=-1, trace=0, maxit=5000))
+                    initial_Z_t <- res$par
+                                res <- optim(par=log(initial_Z_t), full_cond_logscale, W_alpha=W_alpha, X_t=X[,iter], tau=tau, m=m, gr=gradient_full_cond_logscale, method='CG',
+                                             control = list(fnscale=-1, trace=0, maxit=10000))
+                                return(exp(res$par))})
+  better_Z_approx[, iter] <- out
 }
+
 Z_approx <- better_Z_approx
 
 Y_star <- (W_alpha)%*%(Z_approx)
@@ -349,7 +363,7 @@ for (t in 1:niter) {
   ### Part 1
   standardized <- X_tensor$divide(y_star)$sub(m)
   leak <- as_array(sum(standardized<0))
-  if(leak>0 & leak<=135) standardized$abs_()
+  if(leak>0 & leak<=175) standardized$abs_()
   leak2 <- as_array(sum(standardized==0))
   if(leak2>0 & leak2<=120) standardized$add_(1e-07)
   part1 <- -2 * standardized$log()$sum() - y_star$log()$sum() - tau*standardized$pow(-1)$sum() # + n.s*n.t*log(tau)

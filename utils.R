@@ -188,6 +188,26 @@ gradient_full_cond <-  function(v_t, W_alpha, X_t, tau, m){
   return(res)
 }
 
+full_cond_logscale <- function(log_v_t, W_alpha, X_t, tau, m){
+  v_t <- exp(log_v_t)
+  Y_t <- (W_alpha)%*%(v_t)
+  tmp <- 1/(X_t/Y_t-m)
+  if(any(tmp<=0)) return(-1e5)
+  return(-mean(log(Y_t)) + 2*mean(log(tmp))- tau*mean(tmp))
+}
+
+gradient_full_cond_logscale <-  function(log_v_t, W_alpha, X_t, tau, m){
+  v_t <- exp(log_v_t)
+  res <- rep(NA, ncol(W_alpha))
+  Y_t <- (W_alpha)%*%(v_t)
+  tmp <- 1/(X_t/Y_t-m)
+  for (iter in 1:ncol(W_alpha)){
+    tmp2 <- X_t*W_alpha[,iter]/Y_t^2
+    res[iter] <- mean(2*tmp*tmp2 - W_alpha[,iter]/Y_t- tau*tmp^2*tmp2)
+  }
+  return(res*v_t)
+}
+
 # tmp =as_array(v_t[,1])
 # res <- optim(par=tmp, full_cond, W_alpha=W_alpha, X_t=X_t, gr=gradient_full_cond, method='CG',
 #       control = list(fnscale=-1, trace=1, maxit=20000))
