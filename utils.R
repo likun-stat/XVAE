@@ -7,6 +7,14 @@ relu <- function(x){
   return(pmax(0,x))
   # return(log(1+exp(x)))
 }
+
+leaky_relu <- function(x, slope){
+  res <- apply(x, 2, function(x) return(pmax(0,x)+slope*pmin(0,x)))
+  return(res)
+  # return(log(1+exp(x)))
+}
+
+
 wendland <- function (d,r) {
   if (any(d < 0)) 
     stop("d must be nonnegative")
@@ -224,22 +232,43 @@ circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
   return(data.frame(x = xx, y = yy))
 }
 
+## Great circle distance
+circ_dist <- function(x, y){
+  x <- x*pi/180
+  y <- y*pi/180
+  6371*acos(sin(x[2])*sin(y[2])+cos(x[2])*cos(y[2])*cos(x[1]-y[1]))
+}
+
+circ_dist_mat <- function(X, Y){
+  X <- as.matrix(X); Y <- as.matrix(Y)
+  Output <- matrix(NA, nrow=nrow(X), ncol=nrow(Y))
+  X <- X*pi/180
+  Y <- Y*pi/180
+  tmp1_X <- sin(X[,2]); tmp2_X<-cos(X[,2])
+  tmp1_Y <- sin(Y[,2]); tmp2_Y<-cos(Y[,2])
+  for(i in 1:nrow(X)){
+    for(j in 1:nrow(Y)){
+      Output[i,j] <- acos(tmp1_X[i]*tmp1_Y[j]+tmp2_X[i]*tmp2_Y[j]*cos(X[i,1]-Y[j,1]))
+    }
+  }
+  return(6371*Output)
+}
 
 spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd"), 
-                        title='spatial map', legend.name='val', show.legend=TRUE,
+                        title='spatial map', legend.name='val', show.legend=TRUE, show.color=TRUE, show.axis.y = TRUE,
                         xlab='x', ylab='y',
                         brks.round = 2, tight.brks = FALSE,
                         conus_fill = "white", 
                         border.wd = 0.2, pt.size = 3, shp = 16,
-                        range=NULL, q25=NULL, q75=NULL, raster=TRUE){
+                        range=NULL, q25=NULL, q75=NULL, raster=TRUE, aspect_ratio =1){
   require(ggplot2);require(ggh4x)
   if(colnames(stations)[1]!='x') colnames(stations)=c('x', 'y')
-  if(is.null(var)) show.legend=FALSE
-  if(!show.legend){
+  if(is.null(var)) show.color=FALSE
+  if(!show.color){
     plt0 <- ggplot(stations) +
       geom_point(size = pt.size, shape = shp, aes( x = x, y = y), na.rm = TRUE) +
       ylab('y') + xlab('x') +
-      theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
+      theme(panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
             plot.title = element_text(hjust = 0.5, size=14),
             legend.text=element_text(size=12), legend.title=element_text(size=13),
             axis.text=element_text(size=13), axis.title.y=element_text(size=14), 
@@ -264,34 +293,182 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
   
   sc <- scale_color_manual( values = pal, name = legend.name, drop = FALSE, na.translate=FALSE,
                             labels = col.labels ) 
-  gd <- guides(color = guide_legend( reverse = TRUE, override.aes = list(size=5) ))
+  if(show.legend) gd <- guides(color = guide_legend( reverse = TRUE, override.aes = list(size=5) )) else gd <- guides(color = "none")
   
   if(!raster) {
-    plt1 <- ggplot(stations) +
-    geom_point(size = pt.size, shape = shp, aes( x = x, y = y, color = color.use ), na.rm = TRUE) +
-    ylab(ylab) + xlab(xlab)  + sc + gd +
-    theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
-          plot.title = element_text(hjust = 0.5, size=14),
-          legend.text=element_text(size=12), legend.title=element_text(size=13),
-          axis.text=element_text(size=13), axis.title.y=element_text(size=14), 
-          axis.title.x=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)))+
-    ggtitle(title) +
-    force_panelsizes(rows = unit(3.75, "in"),
-                     cols = unit(3.75, "in"))
+    if(show.axis.y){
+      plt1 <- ggplot(stations) +
+        geom_point(size = pt.size, shape = shp, aes( x = x, y = y, color = color.use ), na.rm = TRUE) +
+        ylab(ylab) + xlab(xlab)  + sc + gd +
+        theme(panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+              plot.title = element_text(hjust = 0.5, size=14),
+              legend.text=element_text(size=12), legend.title=element_text(size=13),
+              axis.text=element_text(size=13), axis.title.y=element_text(size=14), 
+              axis.title.x=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)))+
+        ggtitle(title) +
+        force_panelsizes(rows = unit(3.75, "in"),
+                         cols = unit(3.75, "in"))}else{
+                           plt1 <- ggplot(stations) +
+                             geom_point(size = pt.size, shape = shp, aes( x = x, y = y, color = color.use ), na.rm = TRUE) +
+                             ylab(ylab) + xlab(xlab)  + sc + gd +
+                             theme(panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+                                   plot.title = element_text(hjust = 0.5, size=14),
+                                   legend.text=element_text(size=12), legend.title=element_text(size=13),
+                                   axis.text=element_text(size=13),
+                                   axis.title.x=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)),
+                                   axis.text.y=element_blank(), 
+                                   axis.ticks.y=element_blank(),
+                                   axis.title.y = element_blank())+
+                             ggtitle(title) +
+                             force_panelsizes(rows = unit(3.75, "in"),
+                                              cols = unit(3.75, "in"))
+                         }
   }else{
     plt1 <- ggplot(stations) +
       geom_raster(aes( x = x, y = y, fill = var), na.rm = TRUE) +
       ylab(ylab) + xlab(xlab)  + scale_fill_gradientn(name=legend.name, colors = pal, limits = range) + gd +
-      theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
+      theme(panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
             plot.title = element_text(hjust = 0.5, size=14),
             legend.text=element_text(size=12), legend.title=element_text(size=13),
-            axis.text=element_text(size=13), axis.title.y=element_text(size=14), 
-            axis.title.x=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)))+
+            axis.text=element_text(size=13), 
+            axis.title=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)))+
       ggtitle(title) +
       force_panelsizes(rows = unit(3.75, "in"),
-                       cols = unit(3.75, "in"))
+                       cols = unit(3.75/aspect_ratio, "in"))
   }
   return(plt1)
 }
 
+
+
+
+
+library(ggh4x)
+chi_plot <- function(X, stations, emulation, distance, tol=0.001,
+                     u_vec=c(seq(0,0.98,0.01),seq(0.9801,0.9999,0.0001)),
+                     L=25, ylab=expression(chi[u]), uniform=FALSE, legend = TRUE, show.axis.y = TRUE, duplicated = TRUE){
+  require(fields)
+  require(ggplot2)
+  d <- distance
+  upper <- d+tol
+  lower <- d-tol
+  
+  spatial_loc <- matrix(NA,nrow = nrow(X),ncol = 6)
+  for (i in 1:(nrow(X)-1)) {
+    tmp_dist <- rdist(matrix(stations[i,],nrow=1),stations[(i+1):nrow(X),])
+    cand <- which(tmp_dist < upper 
+                  & tmp_dist > lower)
+    if(length(cand)!=0) spatial_loc[i,1:6] <- cand[1:6]
+  }
+  
+  pairs <- matrix(NA,ncol = 2,nrow = length(spatial_loc))
+  for (i in 1:nrow(spatial_loc)) {
+    for (j in 1:ncol(spatial_loc)) {
+      pairs[(i-1)*ncol(spatial_loc)+j,1] <- i
+      pairs[(i-1)*ncol(spatial_loc)+j,2] <- i+spatial_loc[i,j]
+    }
+  }
+  pairs <- data.frame(na.omit(pairs))
+  if(!duplicated)  {
+    pairs <- pairs[which(!duplicated(pairs[,1]))+1,]
+    wh.sub <- floor(seq(1, nrow(pairs), length.out=10))
+    pairs <- pairs[wh.sub,] 
+    pairs <- data.frame(na.omit(pairs))}
+  
+  k1 <- ncol(X)
+  k2 <- ncol(emulation)
+  
+  sim_pairs <- matrix(NA,nrow = ncol(X)*nrow(pairs),ncol = 4)
+  emu_pairs <- matrix(NA,nrow = ncol(emulation)*nrow(pairs),ncol = 4)
+  
+  for (i in 1:nrow(pairs)) {
+    sim_pairs[((i-1)*k1+1):(i*k1),1] <- X[pairs[i,1],]
+    sim_pairs[((i-1)*k1+1):(i*k1),2] <- marginal_thetavec(x=X[pairs[i,1],],L=L,theta = theta_sim[,1],
+                                                          alpha = alpha,k_l=W[pairs[i,1],])
+    if(uniform) {
+      sim_pairs[((i-1)*k1+1):(i*k1),2] <- X[pairs[i,1],]
+    }
+    sim_pairs[((i-1)*k1+1):(i*k1),3] <- X[pairs[i,2],]
+    sim_pairs[((i-1)*k1+1):(i*k1),4] <- marginal_thetavec(x=X[pairs[i,2],],L=L,theta = theta_sim[,1],
+                                                          alpha = alpha,k_l=W[pairs[i,2],])
+    if(uniform) {
+      sim_pairs[((i-1)*k1+1):(i*k1),4] <- X[pairs[i,2],]
+    }
+    
+    emu_pairs[((i-1)*k2+1):(i*k2),1] <- emulation[pairs[i,1],]
+    emu_pairs[((i-1)*k2+1):(i*k2),2] <- marginal_thetavec(x=emulation[pairs[i,1],],L=L,
+                                                          theta = theta_sim[,1],
+                                                          alpha = alpha,k_l=W[pairs[i,1],])
+    if(uniform) {
+      emu_pairs[((i-1)*k1+1):(i*k1),2] <- emulation[pairs[i,1],]
+    }
+    
+    emu_pairs[((i-1)*k2+1):(i*k2),3] <- emulation[pairs[i,2],]
+    emu_pairs[((i-1)*k2+1):(i*k2),4] <- marginal_thetavec(x=emulation[pairs[i,2],],L=L,
+                                                          theta = theta_sim[,1],
+                                                          alpha = alpha,k_l=W[pairs[i,2],])
+    if(uniform) {
+      emu_pairs[((i-1)*k1+1):(i*k1),4] <- emulation[pairs[i,2],]
+    }
+  }
+  
+  sim_pairs <- sim_pairs[,c(2,4)]
+  emu_pairs <- emu_pairs[,c(2,4)]
+  
+  Min_sim <- apply(sim_pairs, 1, min)
+  all_sim <- as.vector(sim_pairs)
+  Min_emu <- apply(emu_pairs, 1, min)
+  all_emu <- as.vector(emu_pairs)
+  
+  
+  EmpIntv_sim <- matrix(NA, nrow = length(u_vec), ncol=3)
+  EmpIntv_emu <- matrix(NA, nrow = length(u_vec), ncol=3)
+  
+  for(i in 1:length(u_vec)){
+    p_tmp1_sim <- mean(Min_sim>u_vec[i])
+    p_tmp2_sim <- mean(all_sim>u_vec[i])
+    if(p_tmp1_sim==0|p_tmp2_sim==0){
+      EmpIntv_sim[i,]<-c(-2,2,0)
+    } else{
+      var_sim <- (1/p_tmp1_sim-1)/length(Min_sim) + (1/p_tmp2_sim-1)/length(all_sim)
+      EmpIntv_sim[i,]<-c(exp(log(p_tmp1_sim/p_tmp2_sim)) - qnorm(0.975)*sqrt(var_sim),
+                         exp(log(p_tmp1_sim/p_tmp2_sim)) - qnorm(0.025)*sqrt(var_sim), p_tmp1_sim/p_tmp2_sim)
+    }
+    
+    p_tmp1_emu <- mean(Min_emu>u_vec[i])
+    p_tmp2_emu <- mean(all_emu>u_vec[i])
+    if(p_tmp1_emu==0|p_tmp2_emu==0){
+      EmpIntv_emu[i,]<-c(-2,2,0)
+    } else{
+      var_emu <- (1/p_tmp1_emu-1)/length(Min_emu) + (1/p_tmp2_emu-1)/length(all_emu)
+      EmpIntv_emu[i,]<-c(exp(log(p_tmp1_emu/p_tmp2_emu)) - qnorm(0.975)*sqrt(var_emu),
+                         exp(log(p_tmp1_emu/p_tmp2_emu)) - qnorm(0.025)*sqrt(var_emu), p_tmp1_emu/p_tmp2_emu)
+    }
+  }
+  dat <- data.frame(x=u_vec,truth=EmpIntv_sim[,3],truth_upper=EmpIntv_sim[,2],truth_lower=EmpIntv_sim[,1],
+                    emu=EmpIntv_emu[,3],emu_upper=EmpIntv_emu[,2],emu_lower=EmpIntv_emu[,1])
+  dat[dat>1] <- 1
+  dat[dat<0] <- 0
+  plt <- ggplot(dat,aes(x=x,y=truth)) +
+    geom_line(aes(color="Truth"),linewidth=1) +
+    geom_line(aes(y=emu,color="Emulation"),linewidth=1) +
+    scale_color_manual(values=c('red', 'black')) + 
+    geom_ribbon(data=dat,aes(ymin=emu_lower,ymax=emu_upper),alpha=0.2,fill="red") +
+    geom_ribbon(data=dat,aes(ymin=truth_lower,ymax=truth_upper),alpha=0.4,fill="black") +
+    labs(colour="Type") +
+    ylab(ylab) + xlab("Quantile") + 
+    ggtitle(paste("Distance in (", lower, ", ", upper, ")", sep=''))+
+    theme(plot.title = element_text(hjust = 0.5)) + 
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0), limits = c(0,1)) + 
+    force_panelsizes(rows = unit(3.05, "in"),
+                     cols = unit(3.05, "in"))
+    
+  if(!legend) plt <- plt + guides(color="none")
+  if(!show.axis.y) plt<- plt + theme( axis.text.y=element_blank(), 
+                                      axis.ticks.y=element_blank(),
+                                      axis.title.y = element_blank())
+  
+  return(plt)
+}
 

@@ -1,6 +1,6 @@
 library(torch)
 
-setwd("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GEV-GP_VAE/extCVAE/")
+setwd("~/Desktop/GEV-GP_VAE/extCVAE/")
 source("utils.R")
 
 ###### ---------------------------------------------------------------------- ######
@@ -18,17 +18,26 @@ n.t <- 100 # n.t <- 500
 
 eucD <- rdist(stations,as.matrix(knot))
 
-W <- wendland(eucD,r=3)
+r=3
+W <- wendland(eucD, r=r)
 W <- sweep(W, 1, rowSums(W), FUN="/")
 # points(stations[W[,1]>0,], pch=20, col='blue')
 # points(stations[W[,25]>0,], pch=20, col='green')
 # points(stations[W[,17]>0,], pch=20, col='orange')
 
+dat <- cbind(circleFun(unlist(knot[1,]), diameter = r*2, npoints = 100), group=1)
+for(iter in 2:nrow(knot)){
+  dat <- rbind(dat, cbind(circleFun(unlist(knot[iter,]), diameter = r*2, npoints = 100), group=iter))
+}
 
-theta_sim <- (sin(knot$x/2)*cos(knot$y/2)+1)/50
-theta_sim[theta_sim < 0.005] <- 0
+
+
+
+theta_sim <- rep(0, nrow(knot))
 theta_sim <- matrix(rep(theta_sim, n.t), ncol=n.t)
-# fields::image.plot(c(1,3,5,7,9), c(1,3,5,7,9), matrix(theta_sim[,1],5,5), col=terrain.colors(25))
+
+
+
 
 
 alpha = 0.5
@@ -86,47 +95,96 @@ X <- X[-holdout,]
 stations <- as.matrix(stations[-holdout,])
 
 
+k = nrow(knot)
+n.s <- nrow(stations)
+n.t <- 100 # n.t <- 500
+stations <- data.frame(stations)
+
+W_holdout <- W[holdout, ]
+W <- W[-holdout, ]
+# Update because we held out 100 locations
+
+
 
 ## Time 1
+library(hetGP)
 start_time <- Sys.time()
-fit <- mleHetGP(stations, X[,1], covtype = "Matern5_2", lower = rep(0.05, 2),
-                 upper = rep(10, 2), settings = list(linkThetas = "none"), maxit = 1e4)
+fit <- mleHetGP(as.matrix(stations), log(X[,2]), covtype = "Matern5_2", lower = rep(0.05, 2),
+                 upper = rep(10, 2), settings = list(linkThetas = "none"), maxit = 1e2)
 end_time <- Sys.time()
 
 end_time - start_time ## 59.98871 mins
 
-p_org <- predict(x = stations, object = fit)
+p_org <- predict(x = as.matrix(stations), object = fit)
 p <- predict(x = stations_holdout, object = fit)
 p$mean
 
+save(X, stations, p_org, p, file = "~/Desktop/GEV-GP_VAE/AD_hetgp_emulation.RData")
 
 
-load("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GEV-GP_VAE/HetGP.RData")
+## -------- All time replicates ---------
+emulation_AD <- matrix(NA, nrow=1900, ncol=100)
+pred_AD <- matrix(NA, nrow=100, ncol=100)
+library(hetGP)
+for(iter in 1:100){
+  cat('iter=',iter,'\n')
+  subset <- sample(1900,600)
+  fit <- mleHomGP(X=as.matrix(stations[subset, ]), Z=X[subset,iter], covtype = "Matern5_2", lower = rep(0.05, 2),
+                  upper = rep(10, 2), settings = list(linkThetas = "none"), maxit = 100)
+  # end_time <- Sys.time()2
+  
+  # end_time - start_time ## 5.843 mins
+  
+  p_org <- predict(x = as.matrix(stations), object = fit)
+  emulation_AD[,iter] <- p_org$mean
+  
+  p_pred <- predict(x = as.matrix(stations_holdout), object = fit)
+  pred_AD[,iter] <- p_pred$mean
+  
+}
 
-plot(1:100, X_holdout[,1], xlab="index", ylab="X")
-points(1:100, p$mean, pch=16, col='blue') 
-
-plot(1:1900, X[,1], xlab="index", ylab="X")
-points(1:1900, p_org$mean, pch=16, col='blue') 
-points(1:1900, station55_Simulations[,floor(n.sim/2)], pch=15, col='red')
-
-plt31 <- spatial_map(data.frame(stations), var=p_org$mean, pal = pal,
-                     title = paste0('HetGP prediction #', ind), legend.name = "HetGP\n values", 
-                     brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75, raster=FALSE)
-plt31
-
-extRemes::qqplot(X[,ind], p_org$mean, 
-                 xlab=expression(paste('Simulated ', X[1])), 
-                 ylab=expression(paste('HetGP ', X[1])), 
-                 xlim=c(0,7), ylim=c(0,7), regress = FALSE)
-
-
-plot(1:100, log(X_holdout[,1]), xlab="index", ylab="log(X)")
-points(1:100, log(p$mean), pch=16, col='blue')
+save(fit, X, X_holdout, stations, emulation_AD, pred_AD, file="~/Desktop/GEV-GP_VAE/HomAD.RData")
 
 
 
-## Time 4
+###### ---------------------------------------------------------------------- ######
+###### ------------------------------ MSPE & CRPS --------------------------- ######
+###### ---------------------------------------------------------------------- ######
+load("~/Desktop/GEV-GP_VAE/HomAD.RData")
+
+### -------- MSPE ---------
+# MSPE <- colMeans((station_Simulations - X_holdout)^2)
+tmp <- (pred_AD - X_holdout)^2
+MSPE <- apply(tmp, 2, function(x) mean(x))
+boxplot(MSPE,ylim=c(0,500))
+
+
+### -------- CRPS ---------
+n.t <- 100
+CRPS <- matrix(NA, nrow=100, ncol=n.t)
+for(loc in 1:100){
+  ecdf_tmp <- ecdf(X_holdout[loc, ])
+  cat("loc=", loc, "\n")
+  for(t in 1:n.t){
+    tmp_integrand <- function(z) ecdf_tmp(z) - I(pred_AD[loc,t]<=z) 
+    tmp_integrand <- Vectorize(tmp_integrand)
+    tmp_res <- integrate(tmp_integrand, lower=0, upper=max(X_holdout[loc, ]), subdivisions =2000, rel.tol = 0.00001)
+    CRPS[loc,t]<- tmp_res$value
+  }
+}
+
+# CRPS_by_loc <- rowMeans(CRPS)
+CRPS_by_loc <- apply(CRPS,1, function(x) mean(x))
+boxplot(CRPS_by_loc,ylim=c(-15,3))
+
+save(CRPS_by_loc, MSPE, file="~/Desktop/GEV-GP_VAE/Figures/CRPS_MSPE_AD_hetGP.RData")
+
+
+
+CRPS_by_loc_hetGP <- CRPS_by_loc; MSPE_hetGP <- MSPE
+load("~/Desktop/GEV-GP_VAE/Figures/CRPS_MSPE_AD.RData")
+
+
 
 
 
