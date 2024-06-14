@@ -1,4 +1,4 @@
-# extCVAE
+# XVAE
 
 Emulating complex climate models via integrating variational autoencoder and spatial extremes
 
@@ -27,8 +27,14 @@ Here, we use compactly-supported Wendland basis functions $\omega_k(s, r_k)$, $k
 
 in which $\alpha\in (0,1)$ is the concentration parameter, and larger values of the tail index $\theta_k\geq 0$ induce lighter-tailed distributions of $Z_{kt}$. 
 
-### Conditional variational autoencoder
+### (Conditional) Variational autoencoder
 ![plot1](www/Extremes_CVAE.png)
+
+### User instructions
+The users can follow the data analysis shown in our manuscript [link](https://arxiv.org/abs/2307.08079) to learn the implementation of the XVAE. Right now, the XVAE is implemented in R with different scripts. We wish to translate everything into python in the near future and deliver a more user-friendly package. For the time being, the users can simply run through the following scripts:
+- Initialization.R
+- XVAE_stochastic_gradient_descent.R
+- XVAE_results_summary.R
 
 
 ## References
@@ -36,3 +42,6 @@ in which $\alpha\in (0,1)$ is the concentration parameter, and larger values of 
 Gregory P Bopp, Benjamin A Shaby, and Raphaël Huser. A hierarchical max-infinitely
 divisible spatial model for extreme precipitation. _Journal of the American Statistical
 Association_, 116(533):93–106, 2021.
+
+<a id="2">[2]</a> 
+Zhang, Likun, Xiaoyu Ma, Christopher K. Wikle, and Raphaël Huser. "Flexible and efficient spatial extremes emulation via variational autoencoders." arXiv preprint arXiv:2307.08079 (2023).

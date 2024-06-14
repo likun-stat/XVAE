@@ -1,11 +1,10 @@
 library(torch)
 
-setwd("~/Desktop/Turbulence/")
-source("~/Desktop/GEV-GP_VAE/extCVAE/utils.R")
-Theta <- c(rep(0, 250), #seq(0,0.001, length.out=100), 
-           seq(0.0011,1.5, length.out=550)) #0.12, 0.15, 0.2, 0.25, 0.3, 0.4, 0.6, 0.9, 1.1, 1.5)
-k <- 400
-n.t <- length(Theta)
+source("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/GEV-GP_VAE/extCVAE/utils.R")
+Theta <- c(rep(0, 350), #seq(0,0.001, length.out=100), 
+           seq(0.0011,3.5, length.out=850)) #0.12, 0.15, 0.2, 0.25, 0.3, 0.4, 0.6, 0.9, 1.1, 1.5)
+k <- 122 # number of replicates
+n.t <- length(Theta) # number of thetas
 
 
 Z <- matrix(NA, nrow=k, ncol=length(Theta))
@@ -148,5 +147,23 @@ for(iter in 1:length(Theta_est)){
 
 plot(density(Theta_est, from=0),  main=bquote(theta == .(true_theta)))
 abline(v=true_theta, col='red', lty=2)
+
+
+
+
+# Save the weights for Impossible TXx
+setwd("~/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Impossible TXx/")
+w_1_theta <- as_array(w_1)
+b_1_theta <- as_array(b_1)
+w_2_theta <- as_array(w_2)
+b_2_theta <- as_array(b_2)
+w_3_theta <- as_array(w_3)
+b_3_theta <- as_array(b_3)
+w_4_theta <- as_array(w_4)
+b_4_theta <- as_array(b_4)
+
+save(w_1_theta, b_1_theta, w_2_theta, b_2_theta, w_3_theta, b_3_theta, w_4_theta, b_4_theta, file="./neuralBayes_for_thetas.RData")
+
+
 
 
