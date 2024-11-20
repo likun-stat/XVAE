@@ -37,6 +37,10 @@ The users can follow the data analysis shown in our manuscript [link](https://ar
 - XVAE_results_summary.R
 
 
+```ruby
+data_driven_knots <- function(X, threshold_p, echo=TRUE)
+```
+
 ## References
 <a id="1">[1]</a> 
 Gregory P Bopp, Benjamin A Shaby, and Raphaël Huser. A hierarchical max-infinitely
