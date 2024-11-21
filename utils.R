@@ -15,12 +15,239 @@ leaky_relu <- function(x, slope){
 }
 
 
-wendland <- function (d,r) {
+# Wendland radial basis function
+# Inputs:
+#   d: A vector or matrix of distances (must be nonnegative)
+#   r: The radius of influence (nonnegative scalar)
+# Outputs:
+#   A vector or matrix of Wendland function values
+# Details:
+#   This function evaluates the Wendland radial basis function with parameters s = 2 and k = 1.
+#   It is compactly supported, meaning the function is zero for distances greater than r.
+wendland <- function(d, r) {
   if (any(d < 0)) 
-    stop("d must be nonnegative")
-  # return(((1 - d/r)^6 * (6 * d/r + 1)) * (d < r)) # s = 2; k = 1
-  return((1 - d/r)^2 * (d < r)) # s = 2; k = 1
+    stop("d must be nonnegative") # Ensure distances are valid
+  
+  return((1 - d/r)^2 * (d < r))
 }
+
+
+
+
+#' Calculate Total Within-Cluster Sum of Squares (WSS) for k-Means Clustering
+#'
+#' This function computes the total WSS for a specified number of clusters (`k`) 
+#' on a given dataset. It is commonly used to evaluate clustering performance 
+#' and select an optimal number of clusters.
+#'
+#' @param k Integer. The number of clusters for the k-means algorithm.
+#' @param df Data frame or matrix. The dataset to be clustered, where rows are observations 
+#'           and columns are features.
+#' @return Numeric. The total within-cluster sum of squares (WSS) for the specified `k`.
+#'
+#' @examples
+#' wss(3, iris[, -5])
+
+wss <- function(k, df) {
+  kmeans(df, k, nstart = 10)$tot.withinss
+}
+
+
+
+
+#' Derive Data-Driven Knots for Spatio-Temporal Models
+#'
+#' This function identifies data-driven knots (spatial locations) based on high values in 
+#' the input data matrix and performs clustering to determine knot locations. Knots are 
+#' used as the basis for constructing spatial basis functions in subsequent modeling steps.
+#'
+#' @param X Matrix. Observed data, where rows correspond to spatial sites and columns to time replicates.
+#' @param stations Data frame or matrix. Spatial coordinates of observation sites, where rows correspond to sites.
+#' @param threshold_p Numeric. The quantile level (e.g., 0.96) used to threshold high values in `X`.
+#' @param echo Logical. If `TRUE`, progress messages are printed during execution.
+#' @param start.knot.num Integer. Initial number of knots. If `NULL`, it defaults to approximately 
+#'                       `5 * log(nrow(stations))`.
+#' @return Matrix. A refined set of knot locations, where rows are coordinates.
+#'
+#' @details
+#' 1. High values in `X` exceeding the specified quantile are identified for each time replicate.
+#' 2. A clustering algorithm (`k-means`) is applied to the spatial locations of these high values 
+#'    to identify clusters, with the number of clusters determined dynamically based on the WSS.
+#' 3. The center within each cluster is chosen as a knot.
+#' 4. Additional coarse grid knots are generated, and all knot candidates are refined to ensure 
+#'    adequate spacing by eliminating close points.
+#'
+#' @examples
+#' # Load example data
+#' load("example_X.RData")
+#' knots <- data_driven_knots(X, stations, threshold_p = 0.96)
+data_driven_knots <- function(X, stations, threshold_p, echo=FALSE, start.knot.num = NULL){
+  # Set the default number of knots if not specified
+  if (is.null(start.knot.num)) 
+    start.knot.num <- round(5 * log(nrow(stations)))
+  
+  # Define the threshold based on the quantile of X
+  threshold <- quantile(X, probs = threshold_p)
+  data.knots <- data.frame(x = NA, y = NA)
+  
+  # Loop through each time replicate
+  for (iter.t in 1:ncol(X)) {
+    # Identify sites exceeding the threshold
+    where.exceed <- which(X[, iter.t] > threshold)
+    
+    # Only proceed if there are enough exceedances
+    if (length(where.exceed) > 10) {
+      # Determine the range of cluster counts to test
+      tmp.min <- min(15, length(where.exceed) - 1)
+      k.values <- 1:tmp.min
+      tmp_df <- stations[where.exceed, ]
+      tmp.obs <- X[where.exceed, iter.t]
+      
+      # Compute WSS for potential cluster counts
+      wss_values <- unlist(lapply(k.values, wss, df = tmp_df))
+      
+      # Identify the optimal number of clusters
+      n.clusters <- which(wss_values / wss_values[1] < 0.15)[1]
+      
+      # Perform k-means clustering with the optimal number of clusters
+      res <- kmeans(tmp_df, n.clusters, nstart = 10)
+      
+      # Select the point with the highest value within each cluster as a knot
+      for (tmp.iter in 1:n.clusters) {
+        where.max <- which.max(tmp.obs[res$cluster == tmp.iter])
+        data.knots <- rbind(data.knots, tmp_df[where.max, ])
+      }
+    }
+  }
+  
+  # Remove the placeholder first row
+  data.knots <- data.knots[-1, ]
+  
+  # Refine knots by clustering them again
+  res <- kmeans(data.knots, start.knot.num, nstart = 10)
+  
+  # Generate additional coarse grid knot candidates
+  coarse.grid.length <- round(sqrt(start.knot.num))
+  knot_candidates <- as.matrix(expand.grid(
+    x = seq(min(stations[, 1]), max(stations[, 1]), length.out = coarse.grid.length),
+    y = seq(min(stations[, 2]), max(stations[, 2]), length.out = coarse.grid.length)
+  ))
+  
+  # Combine cluster centers and coarse grid knots
+  knots <- rbind(knot_candidates, res$centers)
+  rownames(knots) <- NULL
+  
+  # Calculate pairwise distances and eliminate close knots
+  distances <- fields::rdist(knots)
+  min.gap <- max(distances) / 30
+  where.close <- which(distances < min.gap & distances > 0, arr.ind = TRUE)
+  eliminate <- c()
+  if (nrow(where.close) > 0) {
+    for (tmp.iter in 1:nrow(where.close)) {
+      tmp_row <- where.close[tmp.iter, ]
+      if (tmp_row[1] > tmp_row[2]) eliminate <- c(eliminate, tmp_row[2])
+    }
+  }
+  
+  # Remove eliminated knots
+  if (length(eliminate) > 0) 
+    knots <- knots[-eliminate, ]
+  
+  if(echo){
+    plot(data.knots, pch=20, col=res$cluster)
+    points(knots, pch='+', col='red')
+  }
+  return(knots)
+}
+
+
+
+
+
+# Function to calculate the radius needed to ensure all locations are covered by at least one knot
+# Inputs:
+#   knots: A matrix or dataframe of knot coordinates
+#   stations: A matrix or dataframe of station coordinates
+# Output:
+#   radius: The automatically-determined radius such that any station is covered by at least one basis function
+calc_radius <- function(knots, stations) {
+  # Compute the Euclidean distance between each station and all knots
+  eucD <- rdist(stations, as.matrix(knots)) 
+  
+  # Find the minimum distance from each station to the nearest knot
+  nearest_knot_dist <- apply(eucD, 1, min) # Find the minimum distance for each station
+  
+  #  Determine the radius, ensuring all stations are covered by one or more knots
+  radius <- 2 * max(nearest_knot_dist)
+  
+  return(radius)
+}
+
+
+# Function to visualize knots and the coverage of Wendland basis functions
+# Inputs:
+#   knots: A dataframe or matrix with knot coordinates (columns 'x' and 'y')
+#   stations: A dataframe or matrix with station coordinates (columns 'x' and 'y')
+#   r: The radius of influence for the Wendland basis functions
+#   W: A matrix of weights from the Wendland basis functions, where rows correspond to stations 
+#      and columns correspond to knots
+#   select: A vector of indices specifying knots whose coverage will be visualized
+# Output:
+#   A ggplot object visualizing:
+#   - Knots as red '+' markers
+#   - Coverage regions as circles
+#   - Stations influenced by selected knots in different colors (blue, green, yellow)
+
+visualize_knots <- function(knots, stations, r, W, select = c(1, 12, 10)) {
+  # Step 1: Generate circular paths for each knot's coverage
+  # Create the first circle based on the first knot
+  dat <- cbind(circleFun(unlist(knots[1, ]), diameter = r * 2, npoints = 100), group = 1)
+  colnames(knots) <- c('x', 'y')
+  
+  # Add circles for the remaining knots
+  for (iter in 2:nrow(knots)) {
+    dat <- rbind(dat, cbind(circleFun(unlist(knots[iter, ]), diameter = r * 2, npoints = 100), group = iter))
+  }
+  
+  # Step 2: Load ggplot2 library for visualization
+  library(ggplot2)
+  
+  # Step 3: Create the plot
+  fig <- ggplot(knots) +
+    # Plot knots as red '+' symbols
+    geom_point(aes(x = x, y = y), shape = '+', size = 6, color = 'red') +
+    # Plot circular coverage regions
+    geom_path(data = dat, aes(x = x, y = y, group = group)) +
+    # Plot stations influenced by the first selected knot in blue
+    geom_point(
+      data = stations[which(W[, select[1]] > 0.001), ],
+      aes(x = x, y = y),
+      colour = scales::alpha("blue", 0.3)
+    ) +
+    # Plot stations influenced by the second selected knot in green
+    geom_point(
+      data = stations[which(W[, select[2]] > 0.001), ],
+      aes(x = x, y = y),
+      colour = scales::alpha("green", 0.3)
+    ) +
+    # Plot stations influenced by the third selected knot in yellow
+    geom_point(
+      data = stations[which(W[, select[3]] > 0.001), ],
+      aes(x = x, y = y),
+      colour = scales::alpha("yellow", 0.3)
+    ) +
+    # Plot stations with no coverage (NA weights) in black
+    geom_point(
+      data = stations[which(apply(W, 1, function(x) any(is.na(x)))), ],
+      aes(x = x, y = y),
+      colour = "black"
+    )
+  
+  # Step 4: Return the ggplot object
+  fig
+}
+
+
 
 sinc <- function(x) {
   if (sin(x)==0 & x==0)
@@ -174,7 +401,7 @@ marginal_thetavec <- function(x,L=L,theta=theta,alpha=alpha,k_l=k_l){
   y <- sapply(x, function(z) exp(sum(theta^alpha - (theta+(k_l/z)^(1/alpha))^alpha)))
   return(y)
 }
-              
+
 #################################################################################
 ##  --------------------------- v_t initial values   ----------------------------
 #################################################################################
@@ -463,7 +690,7 @@ chi_plot <- function(X, stations, emulation, distance, tol=0.001,
     scale_y_continuous(expand = c(0, 0), limits = c(0,1)) + 
     force_panelsizes(rows = unit(3.05, "in"),
                      cols = unit(3.05, "in"))
-    
+  
   if(!legend) plt <- plt + guides(color="none")
   if(!show.axis.y) plt<- plt + theme( axis.text.y=element_blank(), 
                                       axis.ticks.y=element_blank(),
