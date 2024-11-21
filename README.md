@@ -1,9 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
 # XVAE
 
 Emulating complex climate models via integrating variational autoencoder
