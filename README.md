@@ -1,54 +1,20 @@
-# XVAE Turorial 
+# XVAE Tutorial 
 
 Emulating complex climate models via integrating variational autoencoder
 and spatial extremes
 
 > Department of Statistics, University of Missouri
 
-### Introduction
+## Introduction
 This tutorial provides step-by-step instructions for implementing the XVAE model, designed to emulate 
 high-resolution climate models by integrating spatial extreme value theory with a variational autoencoder (VAE). 
 The methodology follows the max-infinitely divisible process proposed by Bopp et al. (2021)[[1]](#1) and is implemented using `R`. 
 A Python package is planned for future development.
 
+## Implementation Guide
 
-### Max-infinitely divisible processes
-
-Our model is based on the max-infinitely divisible process proposed by
-Bopp et al. (2021)[[1]](#1) and allows for both short-range asymptotic
-independence and dependence along with long-range asymptotic
-independence, which can be specified as follows:
-
-<p align="center">
-
-<img src="https://latex.codecogs.com/svg.image?X_t(\textbf{s})=\epsilon_t(\textbf{s})Y_t(\textbf{s}),&amp;space;"/>
-
-</p>
-
-where 
-- $X_t(s)$ is a spatio-temporal output from a simulator (e.g.,
-high-resolution climate model), 
-- $\epsilon_t(s)$ is a white noise process
-with independent $1/\alpha$-Fréchet marginal distribution, 
-- $Y_t(s)$ is described by a low-rank representation:
-
-<p align="center">
-
-<img src="https://latex.codecogs.com/svg.image?Y_t(\textbf{s})=\left(\sum_{k=1}^K&amp;space;\omega_k(\textbf{s},&amp;space;r_k)^{1/\alpha}Z_{kt}\right)^\alpha.&amp;space;"/>
-
-</p>
-
-with:
-- $\omega_k(s, r_k)$ compactly-supported Wendland basis functions
-, $k=1,\ldots,K$, which are centered at $K$
-pre-specified knots. 
-- $Z_{kt}\sim \text{expPS}(\alpha,\theta_k): Exponentially tilted, positive-stable variables,  governed by $\alpha\in (0,1)$ and a tail index 
-$\theta_k\geq 0$.
-
-### Implementation Guide
-
-#### Requirements
-1. *Dependencies*: Install `R` libraries including `torch`, `dplyr`, `VGAM` and any required visualization libraries such as `ggplot`.
+### Requirements
+1. **Dependencies**: Install `R` libraries including `torch`, `dplyr`, `VGAM` and any required visualization libraries such as `ggplot`.
 2. The users can follow the data analysis shown in our manuscript
 [link](https://arxiv.org/abs/2307.08079) to learn the implementation of
 the XVAE. We wish to translate everything into python in the near future
@@ -59,11 +25,11 @@ can simply run through the following scripts:
 - XVAE_results_summary.R
 
 
-### Step-by-Step Instructions
+## Step-by-Step Instructions
 
 Next, we demonstrate how to train an XVAE using the dataset simulated from Model III in the Simulation Study of Zhang et al. [[2]](#2). The steps to run an XVAE can be generally applied to any spatial input.
 
-#### 1. Generate data-driven knots
+### 1. Generate data-driven knots
 
 First, we need to make sure the file `utils.R` and  is under your working directory so all the utility functions can be loaded:
 ``` ruby
@@ -100,7 +66,7 @@ visualize_knots(knots, stations, r, W)
 ```
 ![plot_knots](www/knots.png)
 
-#### 2. Initial values for latent variables
+### 2. Initial values for latent variables
 
 In this section, we initialize the latent expPS variables via solving a linear system using QR decomposition:
 ``` ruby
@@ -116,21 +82,21 @@ Y_star <- (W_alpha)%*%(Z_approx)
 Y_approx <- Y_star - relu(Y_star-X) 
 ```
 
-#### 3. Define VAE Weights and Encoder-Decoder Initialization
+### 3. Define VAE Weights and Encoder-Decoder Initialization
 Now we initialize the weights and biases for the encoder in the VAE and define them as `torch` tensor:
 ``` ruby
 ## -------------------- Initializing VAE --------------------
 source("Initializing_VAE")
 ```
 
-#### 4. Training the VAE
+### 4. Training the VAE
 Next, we configure the learning rate, activation functions, and other network parameters. These parameters might _require tuning_ based on dataset complexity and model performance.
 ``` ruby
 learning_rate <- -1e-13; alpha_v <- 0.9
 lrelu <- nn_leaky_relu(-0.01)
 nEpoch = 80000
 ```
-#### Training Loop
+### Training Loop
 
 The main training process, where the VAE optimizes the ELBO (Evidence Lower Bound):
 ``` ruby
@@ -302,12 +268,44 @@ for (t in 1:nEpoch) {
 }
 ```
 
-#### 5. Post-Processing and Results
+### 5. Post-Processing and Results
 
 Summarize the results using the provided script:
 
+## Max-infinitely divisible processes
 
-### (Conditional) Variational autoencoder
+Our model is based on the max-infinitely divisible process proposed by
+Bopp et al. (2021)[[1]](#1) and allows for both short-range asymptotic
+independence and dependence along with long-range asymptotic
+independence, which can be specified as follows:
+
+<p align="center">
+
+<img src="https://latex.codecogs.com/svg.image?X_t(\textbf{s})=\epsilon_t(\textbf{s})Y_t(\textbf{s}),&amp;space;"/>
+
+</p>
+
+where 
+- $X_t(s)$ is a spatio-temporal output from a simulator (e.g.,
+high-resolution climate model), 
+- $\epsilon_t(s)$ is a white noise process
+with independent $1/\alpha$-Fréchet marginal distribution, 
+- $Y_t(s)$ is described by a low-rank representation:
+
+<p align="center">
+
+<img src="https://latex.codecogs.com/svg.image?Y_t(\textbf{s})=\left(\sum_{k=1}^K&amp;space;\omega_k(\textbf{s},&amp;space;r_k)^{1/\alpha}Z_{kt}\right)^\alpha.&amp;space;"/>
+
+</p>
+
+with:
+- $\omega_k(s, r_k)$ compactly-supported Wendland basis functions
+, $k=1,\ldots,K$, which are centered at $K$
+pre-specified knots. 
+- $Z_{kt}\sim \text{expPS}(\alpha,\theta_k)$: Exponentially tilted, positive-stable variables,  governed by $\alpha\in (0,1)$ and a tail index 
+$\theta_k\geq 0$.
+
+## (Conditional) Variational autoencoder
 
 ![plot1](www/Extremes_CVAE.png)
 

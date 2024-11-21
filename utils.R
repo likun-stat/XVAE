@@ -3,16 +3,38 @@ library(fields)
 library(VGAM)
 library(torch)
 
-relu <- function(x){
-  return(pmax(0,x))
-  # return(log(1+exp(x)))
+#' ReLU Activation Function
+#'
+#' Implements the Rectified Linear Unit (ReLU) activation function, which is widely used in neural networks.
+#' This function outputs the input `x` if it is positive; otherwise, it returns `0`.
+#'
+#' @param x A numeric vector, matrix, or array to apply the ReLU activation.
+#' @return A numeric object of the same dimensions as `x`, with all negative values replaced by `0`.
+#' @examples
+#' relu(c(-3, 0, 2))  # Returns c(0, 0, 2)
+relu <- function(x) {
+  return(pmax(0, x))
+  # Alternative: return(log(1 + exp(x))) for smoother approximation
 }
 
-leaky_relu <- function(x, slope){
-  res <- apply(x, 2, function(x) return(pmax(0,x)+slope*pmin(0,x)))
+#' Leaky ReLU Activation Function
+#'
+#' Implements the Leaky Rectified Linear Unit (Leaky ReLU) activation function.
+#' This function outputs the input `x` if it is positive, and a small slope 
+#' times `x` (specified by `slope`) if `x` is negative.
+#'
+#' @param x A numeric matrix or array where the activation function is applied column-wise.
+#' @param slope A numeric value specifying the slope for negative inputs. Default values are typically small (e.g., 0.01).
+#' @return A numeric object of the same dimensions as `x`, with modified values based on the Leaky ReLU activation.
+#' @examples
+#' leaky_relu(matrix(c(-1, 2, -3, 4), nrow = 2), slope = 0.01)
+#' # Returns a matrix with values adjusted for Leaky ReLU
+leaky_relu <- function(x, slope) {
+  res <- apply(x, 2, function(x) return(pmax(0, x) + slope * pmin(0, x)))
   return(res)
-  # return(log(1+exp(x)))
+  # Alternative: return(log(1 + exp(x))) for a smoother approximation
 }
+
 
 
 # Wendland radial basis function
@@ -248,18 +270,56 @@ visualize_knots <- function(knots, stations, r, W, select = c(1, 12, 10)) {
 }
 
 
-
+#' Sinc Function
+#'
+#' Implements the sinc function, defined as sin(x) / x. A special case is handled when x = 0,
+#' where the function returns 1 (using the limit of sinc(x) as x approaches 0).
+#'
+#' @param x A numeric value or vector.
+#' @return The result of sin(x) / x, or an error if both numerator and denominator are zero.
+#' @examples
+#' sinc(0)  # Returns 1 (limit case)
+#' sinc(1)  # Returns sin(1)/1
 sinc <- function(x) {
   if (sin(x)==0 & x==0)
     stop("Num&Denom of sinc() are both 0")
   else return(sin(x)/x)
 }
 
+#' Zolo_A Function
+#'
+#' Implements a mathematical transformation based on sine functions. This is used to model
+#' specific stochastic processes and is parameterized by `u` and `alpha`.
+#'
+#' @param u A numeric vector or value. The input for the sine functions.
+#' @param alpha A numeric value, usually between 0 and 1, controlling the weight in the transformation.
+#' @return The result of the transformation applied to `u` and `alpha`.
+#' @examples
+#' Zolo_A(1, alpha = 0.7)  # Returns the transformed value
 Zolo_A <- function(u,alpha=0.7){
   y = ((sin(alpha*u)^alpha*sin(u-u*alpha)^(1-alpha))/(sin(u)))^(1/(1-alpha))
   return(y)
 }
 
+#' f_H Function
+#'
+#' Computes a function related to the expPS distribution, parameterized by `alpha`, `theta`, and `x`.
+#' The function includes two main cases based on the value of `alpha`. When `alpha == 0.5`, a specific form 
+#' of the function is calculated using `gamma` and `log`. Otherwise, numerical methods (integration) are used.
+#'
+#' @param x A numeric value for which the function is evaluated.
+#' @param alpha A numeric value controlling the shape of the function.
+#' @param theta A numeric value influencing the transformation.
+#' @param n The number of points for integration when `alpha != 0.5`.
+#' @param log Logical. If TRUE, the result is returned on the log scale.
+#' @return The computed value of the function `f_H`.
+#' @examples
+#' f_H(1.0, alpha = 0.7, theta = 0.02)  # Returns the computed value
+#' f_H_integrand <- function(u, x){
+#'   A <- (sin(pi*u/2)/sin(pi*u))^2
+#'   return(x^{-2}*A*exp(-A/x))
+#' }
+#' integrate(f_H_integrand, lower=0, upper=1, x=x)
 f_H <- function(x,alpha=0.7,theta=0.02, n=1e3, log=TRUE){
   if(alpha==0.5){
     alpha=1/2; beta = 1/4 # alpha = shape; beta = rate
@@ -275,13 +335,19 @@ f_H <- function(x,alpha=0.7,theta=0.02, n=1e3, log=TRUE){
   if(log) return(y) else return(exp(y))
 }
 
-# f_H_integrand <- function(u, x){
-#   A <- (sin(pi*u/2)/sin(pi*u))^2
-#   return(x^{-2}*A*exp(-A/x))
-# }
-# integrate(f_H_integrand, lower=0, upper=1, x=x)
 
-# According to Devroye (2009), will get smaller sample!
+
+#' Double Rejection Sampler
+#'
+#' This function implements a rejection sampling method to generate expPS variables parameterized
+#' by `alpha` and `theta`. Based on Devroye (2009), it involves multiple stages of sampling
+#' from auxiliary distributions and applying acceptance/rejection criteria.
+#'
+#' @param theta A numeric parameter that influences the distribution.
+#' @param alpha A numeric parameter controlling the shape of the distribution.
+#' @return A random sample from the distribution.
+#' @examples
+#' double_rejection_sampler(theta = 0.5, alpha = 0.7)  # Returns a sample from the distribution
 double_rejection_sampler = function(theta=theta,alpha=alpha){
   if(theta!=0){
     ## set up
@@ -364,30 +430,56 @@ double_rejection_sampler = function(theta=theta,alpha=alpha){
   }
 }
 
-# alpha is fixed at 1/2
-single_rejection_sampler = function(theta=theta){
-  X <- invgamma::rinvgamma(1, shape=1/2, scale=4)
-  V <- runif(1)
-  while(V> exp(-theta*X)){
+#' Single Rejection Sampler
+#'
+#' A simpler rejection sampling method for generating samples from distributions controlled by `alpha` and `theta`.
+#' It uses inverse gamma and stable distribution sampling depending on the value of `alpha`.
+#'
+#' @param theta A numeric parameter influencing the sampling process.
+#' @param alpha A numeric value, typically between 0 and 1
+single_rejection_sampler = function(theta=theta, alpha=1/2){
+  if(alpha==1/2) {
     X <- invgamma::rinvgamma(1, shape=1/2, scale=4)
     V <- runif(1)
-  }
-  return(X)
-}
-
-# alpha is not necessarily 1/2
-single_rejection_sampler_alpha_not_half = function(theta=theta, alpha){
-  gamma <- cos(pi*alpha/2)^{1/alpha}
-  X <- stabledist::rstable(1, alpha=alpha, beta = 1, gamma = gamma, delta = 0, pm=1)
-  V <- runif(1)
-  while(V> exp(-theta*X)){
+    while(V> exp(-theta*X)){
+      X <- invgamma::rinvgamma(1, shape=1/2, scale=4)
+      V <- runif(1)
+    }
+  }else{
+    gamma <- cos(pi*alpha/2)^{1/alpha}
     X <- stabledist::rstable(1, alpha=alpha, beta = 1, gamma = gamma, delta = 0, pm=1)
     V <- runif(1)
+    while(V> exp(-theta*X)){
+      X <- stabledist::rstable(1, alpha=alpha, beta = 1, gamma = gamma, delta = 0, pm=1)
+      V <- runif(1)
+    }
   }
+  
   return(X)
 }
 
-# Use functions in FMStable to calculate H density, but using numerical integration implicitly.
+#' expPS Density Calculation
+#'
+#' Use functions in FMStable to calculate H density, but using numerical integration implicitly. 
+#' This function leverages the FMStable package to evaluate the stable distribution.
+#'
+#' @param x Numeric vector of values at which the density is to be calculated.
+#' @param alpha Stability parameter of the stable distribution (0 < alpha < 2).
+#' @param delta Scale parameter for the stable distribution.
+#' @param theta Exponential decay parameter.
+#'
+#' @return A numeric vector containing the computed density values at each input value of \code{x}.
+#'
+#' @examples
+#' # Example usage of H_density
+#' x <- seq(0.1, 10, by = 0.1)
+#' alpha <- 0.7
+#' delta <- 1
+#' theta <- 0.5
+#' densities <- H_density(x, alpha = alpha, delta = delta, theta = theta)
+#' #'
+#' @importFrom FMStable dEstable setParam
+#' @export
 H_density <- function(x,alpha=alpha,delta=delta,theta=theta){
   gamma <- ((delta/alpha)*cos(pi*alpha/2))^{1/alpha}
   xtmp <- x/((delta/alpha)^{1/alpha})
@@ -396,7 +488,30 @@ H_density <- function(x,alpha=alpha,delta=delta,theta=theta){
   return(res2)
 }
 
-# Marginal distribution function to calculate dependence measure. (Eq.10 in Bopp(2020))
+
+#' Marginal Distribution Function for Dependence Measure
+#'
+#' Computes the marginal distribution function to calculate the dependence measure
+#' based on Equation 10 in Bopp (2020).
+#'
+#' @param x Numeric vector of values at which the marginal distribution is evaluated.
+#' @param L Numeric parameter related to the dependence structure.
+#' @param theta Numeric vector of parameter values for the dependence structure.
+#' @param alpha Stability parameter of the stable distribution (0 < alpha < 2).
+#' @param k_l Numeric parameter related to the scaling in the dependence measure.
+#'
+#' @return A numeric vector containing the computed marginal distribution values for each input \code{x}.
+#'
+#' @examples
+#' # Example usage of marginal_thetavec
+#' x <- seq(0.1, 10, by = 0.1)
+#' L <- 1
+#' theta <- 0.5
+#' alpha <- 0.7
+#' k_l <- 2
+#' result <- marginal_thetavec(x, L = L, theta = theta, alpha = alpha, k_l = k_l)
+#'
+#' @export
 marginal_thetavec <- function(x,L=L,theta=theta,alpha=alpha,k_l=k_l){
   y <- sapply(x, function(z) exp(sum(theta^alpha - (theta+(k_l/z)^(1/alpha))^alpha)))
   return(y)
@@ -451,6 +566,23 @@ gradient_full_cond_logscale <-  function(log_v_t, W_alpha, X_t, tau, m){
 #################################################################################
 ##  ------------------------ Plot pretty spatial maps ---------------------------
 #################################################################################
+#' Generate Points of a Circle
+#'
+#' Creates a data frame containing \code{npoints} evenly spaced points around a circle 
+#' given its center and diameter.
+#'
+#' @param center Numeric vector of length 2, specifying the \code{(x, y)} coordinates of the circle's center. Default is \code{c(0, 0)}.
+#' @param diameter Numeric value specifying the diameter of the circle. Default is \code{1}.
+#' @param npoints Integer specifying the number of points to generate along the circle. Default is \code{100}.
+#'
+#' @return A data frame with columns \code{x} and \code{y}, containing the coordinates of the points on the circle.
+#'
+#' @examples
+#' # Generate points for a circle of diameter 2 centered at (1, 1)
+#' circle <- circleFun(center = c(1, 1), diameter = 2, npoints = 50)
+#' plot(circle, type = "l", asp = 1)
+#'
+#' @export
 circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
   r = diameter / 2
   tt <- seq(0,2*pi,length.out = npoints)
@@ -459,13 +591,47 @@ circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
   return(data.frame(x = xx, y = yy))
 }
 
-## Great circle distance
+#' Great Circle Distance Between Two Points
+#'
+#' Computes the great circle distance (in kilometers) between two points on the Earth's surface 
+#' given their longitude and latitude in degrees.
+#'
+#' @param x Numeric vector of length 2, containing the longitude and latitude of the first point (in degrees).
+#' @param y Numeric vector of length 2, containing the longitude and latitude of the second point (in degrees).
+#'
+#' @return A numeric value representing the great circle distance (in kilometers) between the two points.
+#'
+#' @examples
+#' # Distance between Paris (48.8566, 2.3522) and New York (40.7128, -74.0060)
+#' distance <- circ_dist(c(2.3522, 48.8566), c(-74.0060, 40.7128))
+#' print(distance)
+#'
+#' @export
 circ_dist <- function(x, y){
   x <- x*pi/180
   y <- y*pi/180
   6371*acos(sin(x[2])*sin(y[2])+cos(x[2])*cos(y[2])*cos(x[1]-y[1]))
 }
 
+#' Great Circle Distance Matrix
+#'
+#' Computes a matrix of great circle distances (in kilometers) between two sets of points 
+#' given their longitudes and latitudes in degrees.
+#'
+#' @param X Numeric matrix with 2 columns, where each row represents a point's longitude and latitude (in degrees).
+#' @param Y Numeric matrix with 2 columns, where each row represents a point's longitude and latitude (in degrees).
+#'
+#' @return A numeric matrix where the element at position \code{[i, j]} contains the great circle distance (in kilometers) between 
+#' the \code{i}-th point in \code{X} and the \code{j}-th point in \code{Y}.
+#'
+#' @examples
+#' # Compute distances between two sets of locations
+#' X <- matrix(c(2.3522, 48.8566, -74.0060, 40.7128), ncol = 2, byrow = TRUE) # Paris and New York
+#' Y <- matrix(c(139.6917, 35.6895, -0.1278, 51.5074), ncol = 2, byrow = TRUE) # Tokyo and London
+#' distances <- circ_dist_mat(X, Y)
+#' print(distances)
+#'
+#' @export
 circ_dist_mat <- function(X, Y){
   X <- as.matrix(X); Y <- as.matrix(Y)
   Output <- matrix(NA, nrow=nrow(X), ncol=nrow(Y))
@@ -481,6 +647,38 @@ circ_dist_mat <- function(X, Y){
   return(6371*Output)
 }
 
+
+#' Create a Spatial Map over Contiguous United States with Discrete Data Ranges
+#'
+#' This function generates spatial maps using ggplot2, either with colored points or raster layers, for visualizing spatial data.
+#'
+#' @param stations A data frame with columns `x` and `y`, representing spatial coordinates of points to plot.
+#' @param var Optional numeric vector to map values to colors for points or raster layers.
+#' @param pal Color palette for the map (default is `RColorBrewer::brewer.pal(9,"OrRd")`).
+#' @param title Title of the plot.
+#' @param legend.name Name of the legend for the variable.
+#' @param show.legend Logical; whether to display the legend (default is `TRUE`).
+#' @param show.color Logical; whether to use color mapping (default is `TRUE` if `var` is provided).
+#' @param show.axis.y Logical; whether to show the y-axis labels (default is `TRUE`).
+#' @param xlab, ylab Labels for the x- and y-axes (default: `'x'` and `'y'`).
+#' @param brks.round Number of decimal places to round breakpoints (default: 2).
+#' @param tight.brks Logical; whether to use tighter breakpoints based on quartiles (default: `FALSE`).
+#' @param conus_fill Fill color for the map background (default: `"white"`).
+#' @param border.wd Width of point borders (default: `0.2`).
+#' @param pt.size Size of points in the plot (default: `3`).
+#' @param shp Shape of points in the plot (default: `16`).
+#' @param range Range of the variable values to map (default is the range of `var`).
+#' @param q25, q75 Optional quartiles for tight breakpoints.
+#' @param raster Logical; whether to display a raster map instead of points (default: `TRUE`).
+#' @param aspect_ratio Aspect ratio of the plot (default: `1`).
+#' 
+#' @return A ggplot object representing the spatial map.
+#' @examples
+#' stations <- data.frame(x = runif(100), y = runif(100), var = rnorm(100))
+#' spatial_map(stations, var = stations$var, title = "Example Spatial Map")
+#' @import ggplot2
+#' @import ggh4x
+#' @export
 spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd"), 
                         title='spatial map', legend.name='val', show.legend=TRUE, show.color=TRUE, show.axis.y = TRUE,
                         xlab='x', ylab='y',
@@ -570,7 +768,33 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
 
 
 
-library(ggh4x)
+#' Chi-Plot for Spatial Dependence
+#'
+#' This function generates a chi-plot for evaluating spatial dependence in simulated and emulated data at specified distances.
+#'
+#' @param X A matrix of simulated values at spatial locations.
+#' @param stations A data frame with spatial coordinates (`x`, `y`) of the stations.
+#' @param emulation A matrix of emulated values at spatial locations.
+#' @param distance Distance for selecting pairs of spatial points for comparison.
+#' @param tol Tolerance for distance selection (default: `0.001`).
+#' @param u_vec A vector of quantile thresholds for chi calculations (default: `c(seq(0,0.98,0.01),seq(0.9801,0.9999,0.0001))`).
+#' @param L Number of levels for marginal transformation (default: `25`).
+#' @param ylab Label for the y-axis (default: `expression(chi[u])`).
+#' @param uniform Logical; whether to use uniform marginals (default: `FALSE`).
+#' @param legend Logical; whether to display a legend (default: `TRUE`).
+#' @param show.axis.y Logical; whether to display the y-axis labels (default: `TRUE`).
+#' @param duplicated Logical; whether to retain duplicate pairs of points (default: `TRUE`).
+#' 
+#' @return A ggplot object representing the chi-plot.
+#' @examples
+#' # Example data
+#' X <- matrix(rnorm(1000), ncol=10)
+#' emulation <- matrix(rnorm(1000), ncol=10)
+#' stations <- data.frame(x = runif(100), y = runif(100))
+#' chi_plot(X, stations, emulation, distance=0.5)
+#' @import ggplot2
+#' @import fields
+#' @export
 chi_plot <- function(X, stations, emulation, distance, tol=0.001,
                      u_vec=c(seq(0,0.98,0.01),seq(0.9801,0.9999,0.0001)),
                      L=25, ylab=expression(chi[u]), uniform=FALSE, legend = TRUE, show.axis.y = TRUE, duplicated = TRUE){
