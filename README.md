@@ -1,9 +1,16 @@
-# XVAE
+# XVAE Turorial 
 
 Emulating complex climate models via integrating variational autoencoder
 and spatial extremes
 
 > Department of Statistics, University of Missouri
+
+### Introduction
+This tutorial provides step-by-step instructions for implementing the XVAE model, designed to emulate 
+high-resolution climate models by integrating spatial extreme value theory with a variational autoencoder (VAE). 
+The methodology follows the max-infinitely divisible process proposed by Bopp et al. (2021)[[1]](#1) and is implemented using `R`. 
+A Python package is planned for future development.
+
 
 ### Max-infinitely divisible processes
 
@@ -18,10 +25,12 @@ independence, which can be specified as follows:
 
 </p>
 
-where $X_t(s)$ is a spatio-temporal output from a simulator (e.g.,
-high-resolution climate model), $\epsilon_t(s)$ is a white noise process
-with independent $1/\alpha$-Fréchet marginal distribution, and $Y_t(s)$
-is described by a low-rank representation:
+where 
+- $X_t(s)$ is a spatio-temporal output from a simulator (e.g.,
+high-resolution climate model), 
+- $\epsilon_t(s)$ is a white noise process
+with independent $1/\alpha$-Fréchet marginal distribution, 
+- $Y_t(s)$ is described by a low-rank representation:
 
 <p align="center">
 
@@ -29,34 +38,32 @@ is described by a low-rank representation:
 
 </p>
 
-Here, we use compactly-supported Wendland basis functions
-$\omega_k(s, r_k)$, $k=1,\ldots,K$, which are centered at $K$
-pre-specified knots. The latent variables are lighter-tailed,
-exponentially tilted, positive-stable variables:
+with:
+- $\omega_k(s, r_k)$ compactly-supported Wendland basis functions
+, $k=1,\ldots,K$, which are centered at $K$
+pre-specified knots. 
+- $Z_{kt}\sim \text{expPS}(\alpha,\theta_k): Exponentially tilted, positive-stable variables,  governed by $\alpha\in (0,1)$ and a tail index 
+$\theta_k\geq 0$.
 
-<p align="center">
+### Implementation Guide
 
-<img src="https://latex.codecogs.com/svg.image?Z_{kt}\sim&amp;space;H(\alpha,\alpha,\theta_k),\;&amp;space;k=1,\ldots,&amp;space;K,&amp;space;"/>
-
-</p>
-
-in which $\alpha\in (0,1)$ is the concentration parameter, and larger
-values of the tail index $\theta_k\geq 0$ induce lighter-tailed
-distributions of $Z_{kt}$.
-
-### User instructions
-
-The users can follow the data analysis shown in our manuscript
+#### Requirements
+1. *Dependencies*: Install `R` libraries including `torch`, `dplyr`, `VGAM` and any required visualization libraries such as `ggplot`.
+2. The users can follow the data analysis shown in our manuscript
 [link](https://arxiv.org/abs/2307.08079) to learn the implementation of
-the XVAE. Right now, the XVAE is implemented in R with different
-scripts. We wish to translate everything into python in the near future
+the XVAE. We wish to translate everything into python in the near future
 and deliver a more user-friendly package. For the time being, the users
-can simply run through the following scripts: - Initialization.R -
-XVAE_stochastic_gradient_descent.R - XVAE_results_summary.R
+can simply run through the following scripts: 
+- Initialization.R 
+- XVAE_stochastic_gradient_descent.R 
+- XVAE_results_summary.R
+
+
+### Step-by-Step Instructions
 
 Next, we demonstrate how to train an XVAE using the dataset simulated from Model III in the Simulation Study of Zhang et al. [[2]](#2). The steps to run an XVAE can be generally applied to any spatial input.
 
-> 1. Derive the data-driven knots
+#### 1. Generate data-driven knots
 
 First, we need to make sure the file `utils.R` and  is under your working directory so all the utility functions can be loaded:
 ``` ruby
@@ -72,13 +79,13 @@ knots <- data_driven_knots(X, stations, 0.95, echo=TRUE)
 r <- calc_radius(knots, stations)
 ```
 
-With the knot locations, we can calculate the Wendland basis function values and row-standardize so they sum up to 1 for each location
+Using the knot locations, we calculate the Wendland basis function values and row-standardize them so that they sum to 1 at each location:
 ``` ruby
 W <- wendland(eucD,r=r)
 W <- sweep(W, 1, rowSums(W), FUN="/")
-dim(W)
+dim(W)  # Verify dimensions: `n.s` × `k`
 ```
-Here, the dimensions of `W` should be $n_s\times k$, and we can do some bookkeeping of the dimensions:
+Here, the dimensions of `W` should be $n_s\times k$, and we can summarize the dimensional bookkeeping as follows:
 ``` ruby
 k = nrow(knots)
 n.s <- nrow(stations)
@@ -93,9 +100,9 @@ visualize_knots(knots, stations, r, W)
 ```
 ![plot_knots](www/knots.png)
 
-> 2. Initial values for latent variables
+#### 2. Initial values for latent variables
 
-In this section, we first find the initial values for the latent expPS variables via solving a linear system using QR decomposition:
+In this section, we initialize the latent expPS variables via solving a linear system using QR decomposition:
 ``` ruby
 W_alpha <- W^(1/alpha)
 Z_approx <- array(NA, dim=c(k, n.t))
@@ -104,167 +111,50 @@ for (iter in 1:n.t){
   Z_approx[,iter] <- relu(qr.solve(a=W_alpha, b=X[,iter]))
 }
 
+# Compute approximations
 Y_star <- (W_alpha)%*%(Z_approx)
 Y_approx <- Y_star - relu(Y_star-X) 
 ```
 
-
+#### 3. Define VAE Weights and Encoder-Decoder Initialization
 Now we initialize the weights and biases for the encoder in the VAE and define them as `torch` tensor:
 ``` ruby
-## -------------------- Initial values for the weights --------------------
-X_tensor <- torch_tensor(X,dtype=torch_float())
-W_tensor <- torch_tensor(W,dtype=torch_float())
-tmp <- qr.solve(a=t(X), b=t(Z_approx))
-w_1 <- t(tmp)
-w_1 <- torch_tensor(w_1,dtype=torch_float(),requires_grad = TRUE)
-b_1 <- matrix(rep(0,k), ncol=1) 
-b_1 <- torch_tensor(b_1,dtype=torch_float(),requires_grad = TRUE)
-
-w_2 <- diag(k)
-w_2 <- torch_tensor(w_2,dtype=torch_float(),requires_grad = TRUE)
-b_2 <- matrix(rep(0.00001,k), ncol=1)
-b_2 <- torch_tensor(b_2,dtype=torch_float(),requires_grad = TRUE)
-
-w_4 <- diag(k)
-w_4 <- torch_tensor(w_4,dtype=torch_float(),requires_grad = TRUE)
-b_4 <- matrix(rep(0,k), ncol=1) 
-b_4 <- torch_tensor(b_4,dtype=torch_float(),requires_grad = TRUE)
-
-w_3 <- 0*diag(k)
-w_3 <- torch_tensor(w_3,dtype=torch_float(),requires_grad = TRUE)
-b_3 <- matrix(rep(-15,k), ncol=1)
-b_3 <- torch_tensor(b_3,dtype=torch_float(),requires_grad = TRUE)
-
-
-h <- w_1$mm(X_tensor)$add(b_1)$relu()
-h_1 <- w_2$mm(h)$add(b_2)$relu()
-sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
-mu <- w_4$mm(h_1)$add(b_4)$relu()
-
-## -------------------- Re-parameterization trick --------------------
-Epsilon <- matrix(abs(rnorm(k*n.t))+0.1, nrow=k)
-Epsilon <- torch_tensor(Epsilon,dtype=torch_float())
-v_t <- mu + sqrt(sigma_sq_vec)*Epsilon
-b_8 <- as_array((W_tensor^(1/alpha)))%*%as_array(v_t)-X
-b_8 <- array(-relu(b_8), dim=dim(b_8))
-b_8 <- torch_tensor(b_8,dtype=torch_float(), requires_grad = TRUE)
-
-
-y_approx <-  (W_tensor^(1/alpha))$mm(v_t) + b_8
+## -------------------- Initializing VAE --------------------
+source("Initializing_VAE")
 ```
 
-
-Now moving on to initialize the decoder:
+#### 4. Training the VAE
+Next, we configure the learning rate, activation functions, and other network parameters. These parameters might _require tuning_ based on dataset complexity and model performance.
 ``` ruby
-## -------------------- w_prime and b_prime for theta --------------------
-w_1_prime <- as_array(w_1) #matrix(rnorm(k*n.s,0,0.001), nrow=k)
-w_1_prime <- torch_tensor(w_1_prime,dtype=torch_float(),requires_grad = TRUE)
-w_2_prime <- matrix(diag(k), nrow=k)
-w_2_prime <- torch_tensor(w_2_prime,dtype=torch_float(),requires_grad = TRUE)
-w_3_prime <- matrix(rep(0,k*k), nrow=k)
-w_3_prime <- torch_tensor(w_3_prime,dtype=torch_float(),requires_grad = TRUE)
-w_4_prime <- matrix(diag(k), nrow=k)
-w_4_prime <- torch_tensor(w_4_prime,dtype=torch_float(),requires_grad = TRUE)
-b_1_prime <- matrix(rep(0,k), ncol=1) #matrix(rnorm(k), ncol=1)
-b_1_prime <- torch_tensor(b_1_prime,dtype=torch_float(),requires_grad = TRUE)
-b_2_prime <- matrix(rep(0.05,k), ncol=1)
-b_2_prime <- torch_tensor(b_2_prime,dtype=torch_float(),requires_grad = TRUE)
-b_3_prime <- matrix(rep(-10,k), ncol=1)
-b_3_prime <- torch_tensor(b_3_prime,dtype=torch_float(),requires_grad = TRUE)
-b_4_prime <- matrix(rep(0,k), ncol=1)
-b_4_prime <- torch_tensor(b_4_prime,dtype=torch_float(),requires_grad = TRUE)
-
-w_5 <- diag(k) #matrix(rnorm(k*k,0,0.001), nrow=k)
-w_5 <- torch_tensor(w_5,dtype=torch_float(),requires_grad = TRUE)
-w_6 <- diag(k) #matrix(rnorm(k*k,0,0.001), nrow=k)
-w_6 <- torch_tensor(w_6,dtype=torch_float(),requires_grad = TRUE)
-w_7 <- diag(k) #matrix(rnorm(k*k,0,0.0001), nrow=k)
-w_7 <- torch_tensor(w_7,dtype=torch_float(),requires_grad = TRUE)
-b_5 <- matrix(rep(1e-6,k), ncol=1) #matrix(rnorm(k), ncol=1)
-b_5 <- torch_tensor(b_5,dtype=torch_float(),requires_grad = TRUE)
-b_6 <- matrix(rep(1e-6,k), ncol=1) #matrix(rnorm(k), ncol=1)
-b_6 <- torch_tensor(b_6,dtype=torch_float(),requires_grad = TRUE)
-b_7 <- matrix(rep(1e-6,k), ncol=1) #matrix(rnorm(k,0,0.0001), ncol=1)
-b_7 <- torch_tensor(b_7,dtype=torch_float(),requires_grad = TRUE)
-
-w_1_velocity <- torch_zeros(w_1$size())
-w_2_velocity <- torch_zeros(w_2$size())
-w_3_velocity <- torch_zeros(w_3$size())
-w_4_velocity <- torch_zeros(w_4$size())
-b_1_velocity <- torch_zeros(b_1$size())
-b_2_velocity <- torch_zeros(b_2$size())
-b_3_velocity <- torch_zeros(b_3$size())
-b_4_velocity <- torch_zeros(b_4$size())
-w_1_prime_velocity <- torch_zeros(w_1_prime$size())
-w_2_prime_velocity <- torch_zeros(w_2_prime$size())
-w_3_prime_velocity <- torch_zeros(w_3_prime$size())
-w_4_prime_velocity <- torch_zeros(w_4_prime$size())
-b_1_prime_velocity <- torch_zeros(b_1_prime$size())
-b_2_prime_velocity <- torch_zeros(b_2_prime$size())
-b_3_prime_velocity <- torch_zeros(b_3_prime$size())
-b_4_prime_velocity <- torch_zeros(b_4_prime$size())
-
-w_5_velocity <- torch_zeros(w_5$size())
-w_6_velocity <- torch_zeros(w_6$size())
-w_7_velocity <- torch_zeros(w_7$size())
-b_5_velocity <- torch_zeros(b_5$size())
-b_6_velocity <- torch_zeros(b_6$size())
-b_7_velocity <- torch_zeros(b_7$size())
-
-b_8_velocity <- torch_zeros(b_8$size())
-
-Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
-Epsilon_prime <- torch_tensor(Epsilon_prime,dtype=torch_float())
-```
-
-> 3. Training the VAE
-Now we set up the learning rate, and other network parameters
-``` ruby
-learning_rate <- -1e-13
-alpha_v <- 0.9
+learning_rate <- -1e-13; alpha_v <- 0.9
 lrelu <- nn_leaky_relu(-0.01)
+nEpoch = 80000
 ```
+#### Training Loop
 
+The main training process, where the VAE optimizes the ELBO (Evidence Lower Bound):
 ``` ruby
-nepoch = 80000
-n <- 1e3
-# only depends on alpha; we are not updating alpha for now.
-vec <- Zolo_A(pi*seq(1/2,n-1/2,1)/n, alpha)
-Zolo_vec <- torch_tensor(matrix(vec, nrow=1,ncol=n), dtype=torch_float(), requires_grad = FALSE) 
-Zolo_vec_double <- torch_tensor(Zolo_vec, dtype = torch_float64(), requires_grad = FALSE)
-const <- 1/(1-alpha); const1 <- 1/(1-alpha)-1; const3 <- log(const1)
-W_alpha_tensor <- W_tensor$pow(1/alpha)
 old_loss <- -Inf
-```
-
-Start training:
-``` ruby
-for (t in 1:nepoch) {
-  if(t==1000) { learning_rate <- -5e-13; alpha_v <- 0.9}
-  if(t==5000) { learning_rate <- -1e-12; alpha_v <- 0.8}
-  if(t==80000) { learning_rate <- -2e-12; alpha_v <- 0.7}
-  if(t==90000) { learning_rate <- -1e-11; alpha_v <- 0.7}
-  if(t==100000) { learning_rate <- -2e-11; alpha_v <- 0.5}
-  if(t==110000) { learning_rate <- -5e-10; alpha_v <- 0.4}
-  if(t==120000) { learning_rate <- -1e-9; alpha_v <- 0.4}
-  if(t==140000) { learning_rate <- -1e-8; alpha_v <- 0.4}
-  if(t==300000) { learning_rate <- -1e-7; alpha_v <- 0.4}
+for (t in 1:nEpoch) {
+  # Adapt learning rate and momentum at regular intervals
+  if(round(log2(t))%%4 == 0) { learning_rate <- 2 * learning_rate; alpha_v <- 0.95*alpha_v}
   
   ### -------- Forward pass --------
+  # Generate random noise for reparameterization trick
   Epsilon <- t(0.1+abs(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k)))))
   Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
-  
   Epsilon <- torch_tensor(Epsilon,dtype=torch_float())
   Epsilon_prime <- torch_tensor(Epsilon_prime,dtype=torch_float())
   
   
-  ### -------- Encoder for v_t --------
+ ### -------- Encoder for Primary Latent Space --------
   h <- w_1$mm(X_tensor)$add(b_1)$relu()
   h_1 <- w_2$mm(h)$add(b_2)$relu()
   sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
   mu <- w_4$mm(h_1)$add(b_4)$relu()
   
-  ### -------- Encoder for v_t_prime --------
+  ### -------- Encoder for Auxiliary Latent Space --------
+  # Similar encoding process for auxiliary representation `v_t_prime`
   h_prime <- w_1_prime$mm(X_tensor)$add(b_1_prime)$relu()
   h_1_prime <- w_2_prime$mm(h_prime)$add(b_2_prime)$relu()
   
@@ -283,15 +173,17 @@ for (t in 1:nepoch) {
   
   
   ### -------- Decoder --------
+  # Decode auxiliary latent variables to reconstruct input
   l <- w_5$mm(v_t_prime)$add(b_5)$relu()
   l_1 <- w_6$mm(l)$add(b_6)$relu()
   theta_t <- w_7$mm(l_1)$add(b_7)$relu()
   
+  # Apply leaky ReLU activation for final output
   y_star <- lrelu(W_alpha_tensor$mm(v_t)$add(b_8))
   
   
-  ### -------- ELBO -------- 
-  ### Part 1
+  ### -------- Evidence Lower Bound (ELBO) -------- 
+  # Compute reconstruction loss (Part 1)
   standardized <- X_tensor$divide(y_star)$sub(m)
   leak <- as_array(sum(standardized<0))
   if(leak>0 & leak<=175) standardized$abs_()
@@ -299,7 +191,7 @@ for (t in 1:nepoch) {
   if(leak2>0 & leak2<=120) standardized$add_(1e-07)
   part1 <- -2 * standardized$log()$sum() - y_star$log()$sum() - tau*standardized$pow(-1)$sum() # + n.s*n.t*log(tau)
   
-  ### Part 2
+  # Compute latent space regularization (Part 2)
   V_t <- v_t$view(c(k*n.t,1))
   Theta_t <- theta_t$view(c(k*n.t,1))
   part_log_v1  <- V_t$pow(-const)$mm(Zolo_vec) 
@@ -311,22 +203,24 @@ for (t in 1:nepoch) {
     part2 <- (part2_tmp+part_log_v3$view(k*n.t)$add(const3))$sum()
   }
   
-  ### Part 3
+  # Compute Gaussian prior penalty (Part 3)
   part3 = Epsilon$pow(2)$sum()/2 + Epsilon_prime$pow(2)$sum()/2 + sigma_sq_vec$log()$sum() + sigma_sq_vec_prime$log()$sum()
-  res <- part1 + part2 + part3
   
-  ### -------- compute loss -------- 
+  # Aggregate ELBO
+  res <- part1 + part2 + part3
   loss <- (res/(n.s*n.t))
+  
+  #Log and terminate early on NaN or diverging loss
   if(!is.finite(loss$item())) break
-  if (t %% 1 == 0)
+  if (t %% 10 == 0)
     cat("Epoch: ", t, "   ELBO: ", loss$item(), "\n") # we want to maximize
-  if (as.numeric(torch_isnan(loss))==1) break
+
   ### -------- Backpropagation --------
   # compute gradient of loss w.r.t. all tensors with requires_grad = TRUE
   loss$backward()
-  # w_1$grad$argmax(dim=2)
-  
-  ### -------- Update weights -------- 
+
+  ### -------- Update Parameters --------
+  # Perform parameter updates with momentum
   
   # Wrap in with_no_grad() because this is a part we DON'T 
   # want to record for automatic gradient computation
@@ -407,6 +301,11 @@ for (t in 1:nepoch) {
   })
 }
 ```
+
+#### 5. Post-Processing and Results
+
+Summarize the results using the provided script:
+
 
 ### (Conditional) Variational autoencoder
 
