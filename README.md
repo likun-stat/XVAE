@@ -56,7 +56,8 @@ XVAE_stochastic_gradient_descent.R - XVAE_results_summary.R
 
 Next, we demonstrate how to train an XVAE using the dataset simulated from Model III in the Simulation Study of Zhang et al. [[2]](#2). The steps to run an XVAE can be generally applied to any spatial input.
 
-#### 1. Derive the data-driven knots
+> 1. Derive the data-driven knots
+
 First, we need to make sure the file `utils.R` and  is under your working directory so all the utility functions can be loaded:
 ``` ruby
 source("utils.R")
@@ -92,8 +93,8 @@ visualize_knots(knots, stations, r, W)
 ```
 ![plot_knots](www/knots.png)
 
+> 2. Initial values for latent variables
 
-#### 2. Initial values for latent variables
 In this section, we first find the initial values for the latent expPS variables via solving a linear system using QR decomposition:
 ``` ruby
 W_alpha <- W^(1/alpha)
@@ -216,7 +217,7 @@ Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))
 Epsilon_prime <- torch_tensor(Epsilon_prime,dtype=torch_float())
 ```
 
-#### 3. Training the VAE
+> 3. Training the VAE
 Now we set up the learning rate, and other network parameters
 ``` ruby
 learning_rate <- -1e-13
