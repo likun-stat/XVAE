@@ -14,7 +14,7 @@ A Python package is planned for future development.
 ## Implementation Guide
 
 ### Requirements
-1. **Dependencies**: Install `R` libraries including `torch`, `dplyr`, `VGAM` and any required visualization libraries such as `ggplot`.
+1. **Dependencies**: Install `R` libraries including `torch`, `dplyr`, `VGAM`, `extRemes` and any required visualization libraries such as `ggplot`.
 2. The users can follow the demonstration shown below to learn the implementation of
 the XVAE. We wish to translate everything into python in the near future
 and deliver a more user-friendly package. For the time being, the users
@@ -100,7 +100,7 @@ nEpoch = 10000
 ```
 ### Training Loop
 
-The main training process, where the VAE optimizes the ELBO (Evidence Lower Bound):
+The main training process, where the VAE optimizes the ELBO (Evidence Lower Bound; see Algorithm 2 in Zhang et al. [[2]](#2)):
 ``` ruby
 source("XVAE_training_loop.R")
 ```
@@ -115,6 +115,27 @@ Here, `output` is a list with
 - `emulations`: A matrix of simulated values for spatial inputs.
 -  `theta_est`: A matrix of estimated parameters from the decoder.
 
+#### Visual comparison
+Now we compare the scatter plot of the spatial input and the emulation:
+``` ruby
+chosen_time <- 10
+range_t <- c(0, max(X[,chosen_time]))
+q25 <- quantile(X[,chosen_time], 0.25)
+q75 <- quantile(X[,chosen_time], 0.75)
+
+pal <- RColorBrewer::brewer.pal(9,"RdBu")
+plt3 <- spatial_map(stations, var=X[,chosen_time], pal = pal,
+                    title = paste0('Observed copula replicate #', chosen_time), legend.name = "Observed\n values", 
+                    brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75, pt.size=1, raster=FALSE)
+plt3
+
+plt31 <- spatial_map(stations, var=output$emulations[,chosen_time], pal = pal,
+                     title = paste0('Emulated copula replicate #', chosen_time), legend.name = "Emulated\n values", 
+                     brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75, pt.size=1, raster=FALSE)
+plt31
+```
+![plot_emu](www/emu.png)
+
 #### $\chi_d(u)$ comparison
 
 Now we empirically estimate $\chi_d(u),\; u\in (0,1),$ for both the original spatial input and the emulated dataset at $d\approx 1.5$:
@@ -122,6 +143,16 @@ Now we empirically estimate $\chi_d(u),\; u\in (0,1),$ for both the original spa
 chi_plot(X,stations, output$emulations, distance=1.5, legend = TRUE, ylab = expression(atop(bold("Simulated input data from Model III"), chi[u])))
 ```
 ![plot_chi](www/chi_plot.png)
+
+#### Quantile-Quantile plots
+``` ruby
+extRemes::qqplot(X[,chosen_time], output$emulations[,chosen_time], regress = FALSE,
+                 xlab=expression(paste('Simulated ', X[t])),
+                 ylab=expression(paste('Emulated ', X[t])), cex.lab = 1.2,
+                  xlim=c(0,19), ylim=c(0,20), main=paste("t =", chosen_time))
+```
+![plot_qq](www/qqplot.png)
+
 Summarize the results using the provided script:
 
 ## Max-infinitely divisible processes
