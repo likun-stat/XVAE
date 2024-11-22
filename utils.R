@@ -37,15 +37,26 @@ leaky_relu <- function(x, slope) {
 
 
 
-# Wendland radial basis function
-# Inputs:
-#   d: A vector or matrix of distances (must be nonnegative)
-#   r: The radius of influence (nonnegative scalar)
-# Outputs:
-#   A vector or matrix of Wendland function values
-# Details:
-#   This function evaluates the Wendland radial basis function with parameters s = 2 and k = 1.
-#   It is compactly supported, meaning the function is zero for distances greater than r.
+#' Wendland Radial Basis Function
+#'
+#' This function evaluates the Wendland radial basis function with parameters \code{s = 2} and \code{k = 1}.
+#' It is compactly supported, meaning the function value is zero for distances greater than \code{r}.
+#'
+#' @param d A vector or matrix of nonnegative distances.
+#' @param r A nonnegative scalar representing the radius of influence.
+#' 
+#' @return A vector or matrix of Wendland function values, where the function is zero for distances greater than \code{r}.
+#'
+#' @details The Wendland radial basis function is commonly used in spatial statistics and machine learning for interpolation and smoothing.
+#' This implementation assumes parameters \code{s = 2} and \code{k = 1}.
+#' 
+#' @examples
+#' # Example: Compute Wendland function values for a vector of distances
+#' distances <- c(0, 0.5, 1, 1.5, 2)
+#' radius <- 1
+#' wendland(distances, radius)
+#'
+#' @export
 wendland <- function(d, r) {
   if (any(d < 0)) 
     stop("d must be nonnegative") # Ensure distances are valid
@@ -186,12 +197,28 @@ data_driven_knots <- function(X, stations, threshold_p, echo=FALSE, start.knot.n
 
 
 
-# Function to calculate the radius needed to ensure all locations are covered by at least one knot
-# Inputs:
-#   knots: A matrix or dataframe of knot coordinates
-#   stations: A matrix or dataframe of station coordinates
-# Output:
-#   radius: The automatically-determined radius such that any station is covered by at least one basis function
+#' Calculate Radius to Ensure Coverage by Knots
+#'
+#' This function calculates the radius required to ensure that all station locations 
+#' are covered by at least one radial basis function centered at the knot locations.
+#'
+#' @param knots A matrix or dataframe of coordinates representing knot locations.
+#' @param stations A matrix or dataframe of coordinates representing station locations.
+#' 
+#' @return A numeric scalar representing the radius required to ensure coverage.
+#'
+#' @details The function computes the Euclidean distance between every station and all knots, 
+#' determines the nearest knot for each station, and calculates the radius as twice the maximum 
+#' of these minimum distances. This ensures that every station is within the radius of influence 
+#' of at least one knot.
+#' 
+#' @examples
+#' # Example: Calculate radius to cover all stations with knots
+#' knots <- matrix(c(0, 0, 1, 1), ncol = 2)       # Knot coordinates
+#' stations <- matrix(c(0.5, 0.5, 2, 2), ncol = 2) # Station coordinates
+#' calc_radius(knots, stations)
+#'
+#' @export
 calc_radius <- function(knots, stations) {
   # Compute the Euclidean distance between each station and all knots
   eucD <- rdist(stations, as.matrix(knots)) 
@@ -206,20 +233,41 @@ calc_radius <- function(knots, stations) {
 }
 
 
-# Function to visualize knots and the coverage of Wendland basis functions
-# Inputs:
-#   knots: A dataframe or matrix with knot coordinates (columns 'x' and 'y')
-#   stations: A dataframe or matrix with station coordinates (columns 'x' and 'y')
-#   r: The radius of influence for the Wendland basis functions
-#   W: A matrix of weights from the Wendland basis functions, where rows correspond to stations 
-#      and columns correspond to knots
-#   select: A vector of indices specifying knots whose coverage will be visualized
-# Output:
-#   A ggplot object visualizing:
-#   - Knots as red '+' markers
-#   - Coverage regions as circles
-#   - Stations influenced by selected knots in different colors (blue, green, yellow)
-
+#' Visualize Knots and Coverage of Wendland Basis Functions
+#'
+#' This function visualizes the spatial coverage of Wendland basis functions for selected knots.
+#' It highlights the knots, their coverage regions, and stations influenced by selected knots.
+#'
+#' @param knots A dataframe or matrix with coordinates of knots (must have columns `x` and `y`).
+#' @param stations A dataframe or matrix with coordinates of stations (must have columns `x` and `y`).
+#' @param r A numeric scalar specifying the radius of influence for the Wendland basis functions.
+#' @param W A matrix of weights from the Wendland basis functions. Rows correspond to stations, and 
+#' columns correspond to knots.
+#' @param select A numeric vector of indices specifying the knots whose coverage regions will be 
+#' visualized. Defaults to `c(1, 12, 10)`.
+#'
+#' @return A `ggplot` object that visualizes:
+#' \itemize{
+#'   \item Knots as red '+' markers.
+#'   \item Coverage regions as circles around the knots.
+#'   \item Stations influenced by selected knots in different colors (e.g., blue, green, yellow).
+#'   \item Stations not covered by any knot (with `NA` weights) in black.
+#' }
+#'
+#' @details The function generates circular paths representing the coverage of each knot. It then 
+#' visualizes the stations influenced by specific knots with a customizable color scheme.
+#'
+#' @examples
+#' # Example data
+#' knots <- data.frame(x = runif(20, 0, 10), y = runif(20, 0, 10))
+#' stations <- data.frame(x = runif(100, 0, 10), y = runif(100, 0, 10))
+#' r <- 2
+#' W <- matrix(runif(2000, 0, 1), nrow = 100, ncol = 20)
+#' 
+#' # Visualize the coverage
+#' visualize_knots(knots, stations, r, W, select = c(1, 5, 10))
+#'
+#' @export
 visualize_knots <- function(knots, stations, r, W, select = c(1, 12, 10)) {
   # Step 1: Generate circular paths for each knot's coverage
   # Create the first circle based on the first knot
@@ -561,6 +609,78 @@ gradient_full_cond_logscale <-  function(log_v_t, W_alpha, X_t, tau, m){
 # tmp =as_array(v_t[,1])
 # res <- optim(par=tmp, full_cond, W_alpha=W_alpha, X_t=X_t, gr=gradient_full_cond, method='CG',
 #       control = list(fnscale=-1, trace=1, maxit=20000))
+
+
+
+#' Emulate Spatial Input Using Trained Weights and Biases from VAE
+#'
+#' This function emulates spatial inputs using trained weights and biases from the XVAE. Note weights and biases
+#' have to be in the global environment. 
+#' It encodes input data, applies transformations, and decodes latent variables to generate simulations.
+#'
+#' @details
+#' The function implements the following steps:
+#' 1. **Encoder for \( v_t \)**: Encodes spatial inputs into a latent representation.
+#' 2. **Encoder for \( v_t' \)**: Encodes another input for transformation.
+#' 3. **Laplace Transformation**: Activates latent variables using a Laplace transformation.
+#' 4. **Re-parameterization Trick**: Generates stochastic latent variables.
+#' 5. **Decoder**: Decodes latent variables to produce outputs.
+#' 
+#' The final outputs are simulated spatial data (`emulations`) and an estimated parameter (`theta_est`).
+#'
+#' @return A list with:
+#' \itemize{
+#'   \item `emulations`: A matrix of simulated values for spatial inputs.
+#'   \item `theta_est`: A matrix of estimated parameters from the decoder.
+#' }
+#'
+#' @export
+emulate_from_trained_XVAE <- function(){
+  
+  ### -------- Encoder for v_t --------
+  h <- w_1$mm(X_tensor)$add(b_1)$relu()
+  h_1 <- w_2$mm(h)$add(b_2)$relu()
+  sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
+  mu <- w_4$mm(h_1)$add(b_4)$relu()
+  
+  ### -------- Encoder for v_t_prime --------
+  h_prime <- w_1_prime$mm(X_tensor)$add(b_1_prime)$relu()
+  h_1_prime <- w_2_prime$mm(h_prime)$add(b_2_prime)$relu()
+  
+  ### -------- Activation via Laplace transformation --------
+  h_1_prime_laplace <- h_1_prime$multiply(-0.2)$exp()$mean(dim=2)
+  h_1_prime_t <- h_1_prime_laplace$log()$multiply(-1)
+  h_1_prime_to_theta <- (0.2-h_1_prime_t$pow(2))$pow(2)$divide(4*h_1_prime_t$pow(2))$view(c(k,1))
+  theta_propagate <- h_1_prime_to_theta$expand(c(k,n.t))
+  
+  sigma_sq_vec_prime <- w_3_prime$mm(theta_propagate)$add(b_3_prime)$exp() #w_3_prime$mm(h_1_prime)$add(b_3_prime)$exp()
+  mu_prime <- w_4_prime$mm(theta_propagate)$add(b_4_prime) #w_4_prime$mm(h_1_prime)$add(b_4_prime)
+  
+  
+  Epsilon <- t(abs(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k)))))
+  Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
+  
+  Epsilon <- torch_tensor(Epsilon, dtype=torch_float())
+  Epsilon_prime <- torch_tensor(Epsilon_prime, dtype=torch_float())
+  
+  ### -------- Re-parameterization trick --------
+  v_t <- mu + sqrt(sigma_sq_vec)*Epsilon
+  v_t_prime <- mu_prime + sqrt(sigma_sq_vec_prime)*Epsilon_prime
+  
+  ### -------- Decoder --------
+  l <- w_5$mm(v_t_prime)$add(b_5)$relu()
+  l_1 <- w_6$mm(l)$add(b_6)$relu()
+  theta_t <- w_7$mm(l_1)$add(b_7)$relu()
+  
+  y_star <- lrelu(W_alpha_tensor$mm(v_t)$add(b_8))
+  
+  ##Decoder
+  station_Simulations_All <- matrix(rfrechet(n.s*n.t, shape=1, location = m, scale = tau), nrow=n.s) * as_array((y_star))
+  theta_sim <- as_array(theta_t)
+  return(list(emulations = station_Simulations_All, theta_est = theta_sim))
+}
+
+
 
 
 #################################################################################
