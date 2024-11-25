@@ -51,7 +51,7 @@ Next, we demonstrate how to train an XVAE using the dataset simulated from Model
 
 ### 1. Generate data-driven knots
 
-First, we need to load the simulate data:
+First, we need to load the simulated data:
 ``` ruby
 data(example_X)
 ```
