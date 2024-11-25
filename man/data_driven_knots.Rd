@@ -44,6 +44,6 @@ adequate spacing by eliminating close points.
 }
 \examples{
 # Load example data
-load("example_X.RData")
+data(example_X.RData)
 knots <- data_driven_knots(X, stations, threshold_p = 0.96)
 }

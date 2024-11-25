@@ -508,7 +508,7 @@ XVAE_training_loop <- function(){
 #'
 #' @examples
 #' # Load example data
-#' load("example_X.RData")
+#' data(example_X.RData)
 #' knots <- data_driven_knots(X, stations, threshold_p = 0.96)
 #' @export
 data_driven_knots <- function(X, stations, threshold_p, echo=FALSE, start.knot.num = NULL){
