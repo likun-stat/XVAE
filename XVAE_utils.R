@@ -1043,3 +1043,135 @@ chi_plot <- function(X, stations, emulation, distance, tol=0.001,
   return(plt)
 }
 
+
+
+#' Compare Average Radius of Exceedance (ARE) using different models
+#'
+#' This function calculates the Average Radius of Exceedance (ARE) for different 
+#' models based on a regular grid of spatial data in their uniform scale (i.e., copulas). 
+#'
+#' @param stations A matrix or data frame containing the coordinates of points 
+#'   in the regular spatial grid. Must be a regular grid.
+#' @param center An optional index specifying the center of the spatial domain. 
+#'   If NULL, the center is determined as the point with the minimum mean distance 
+#'   to all other points.
+#' @param U1 A matrix of simulated data in their uniform scalerepresenting the "Truth" model.  
+#'   Rows correspond to spatial locations, and columns correspond to simulations.
+#' @param U2 An optional matrix of data representing the emulations from a model.
+#' @param U3 An optional matrix of data representing the emulations from another model.
+#' @param u_vec A numeric vector of quantile thresholds used for calculating exceedances. 
+#'   Defaults to a sequence of values between 0 and 0.998.
+#' @param names A character vector of length three specifying labels for the models. 
+#'   Defaults to c("Truth", "XVAE", "extGAN").
+#'
+#' @return A ggplot object showing the ARE comparison for the three models. The 
+#'   plot includes lines for mean ARE and shaded areas for 95% confidence intervals.
+#'
+#' @details The function calculates the ARE for the specified models at each 
+#'   quantile threshold in `u_vec`. The ARE is computed as the average spatial 
+#'   area where the model exceeds the threshold at the center of the domain.
+#'
+#' @examples
+#' # Example usage:
+#' load("./data/copulas.RData")
+#' ARE_comparison(stations, U1=U_sim_grid, U2=U_xvae_grid, U3=U_gan_grid, names =c("Truth", "XVAE", "extGAN"))
+#'
+#' @export
+ARE_comparison <- function(stations, center=NULL, U1, U2=NULL, U3=NULL, u_vec=NULL, names =c("Truth", "XVAE", "extGAN")){
+  tidyterra::is_regular_grid(stations, digits = 6) #stop("The spatial input must be on a regular grid.")
+  if(is.null(center)){
+    center <- which.min(apply(rdist(stations),1,mean))
+  }
+  unit_area <- diff(unique(stations[,1]))[1] * diff(unique(stations[,2]))[1]
+  total_area <- unit_area * nrow(stations)
+  if(is.null(u_vec)) u_vec <- c(seq(0,0.98,0.01),seq(0.9801,0.998,0.0001))
+  
+  Emp_ARE_ori <- array(NA, c(length(u_vec), 3))
+  for(iter in 1:length(u_vec)){
+    u_tmp <- u_vec[iter]
+    where.exceed <- which(U1[center, ]>u_tmp) ## center of the spatial domain
+    if(length(where.exceed)>0){
+      tmp_AE <- rep(NA, length(where.exceed))
+      for(col in 1:length(where.exceed)){
+        tmp_AE[col] <- sum(U1[,where.exceed[col]]>u_tmp)*unit_area
+      }
+      
+      Emp_ARE_ori[iter,] <- c(mean(tmp_AE), quantile(tmp_AE, p=c(0.025, 0.975)))
+    }else{
+      Emp_ARE_ori[iter,] <- c(0,0,total_area)
+    }
+  }
+  
+  
+  Emp_ARE_XVAE <- array(NA, c(length(u_vec), 3))
+  if(!is.null(U2)){
+    for(iter in 1:length(u_vec)){
+      u_tmp <- u_vec[iter]
+      where.exceed <- which(U2[center, ]>u_tmp) ## center of the spatial domain
+      if(length(where.exceed)>0){
+        tmp_AE <- rep(NA, length(where.exceed))
+        for(col in 1:length(where.exceed)){
+          tmp_AE[col] <- sum(U2[,where.exceed[col]]>u_tmp)*unit_area
+        }
+        
+        Emp_ARE_XVAE[iter,] <- c(mean(tmp_AE), quantile(tmp_AE, p=c(0.025, 0.975)))
+      }else{
+        Emp_ARE_XVAE[iter,] <- c(0,0,total_area)
+      }
+    }
+  }
+  
+  
+  if(!is.null(U2)){
+    Emp_ARE_extGAN <- array(NA, c(length(u_vec), 3))
+    for(iter in 1:length(u_vec)){
+      u_tmp <- u_vec[iter]
+      where.exceed <- which(U3[center, ]>u_tmp) ## center of the spatial domain
+      if(length(where.exceed)>0){
+        tmp_AE <- rep(NA, length(where.exceed))
+        for(col in 1:length(where.exceed)){
+          tmp_AE[col] <- sum(U3[,where.exceed[col]]>u_tmp)*unit_area
+        }
+        
+        Emp_ARE_extGAN[iter,] <- c(mean(tmp_AE), quantile(tmp_AE, p=c(0.025, 0.975)))
+      }else{
+        Emp_ARE_extGAN[iter,] <- c(0,0,total_area)
+      }
+    }
+  }
+  
+  # dat <- data.frame(x = u_vec, 
+  #                   truth = sqrt(Emp_ARE_ori[,1]/pi), truth_lower = sqrt(Emp_ARE_ori[,2]/pi), truth_upper=sqrt(Emp_ARE_ori[,3]/pi), 
+  #                   emu = sqrt(Emp_ARE_XVAE[,1]/pi), emu_lower = sqrt(Emp_ARE_XVAE[,2]/pi), emu_upper=sqrt(Emp_ARE_XVAE[,3]/pi),
+  #                   gan = sqrt(Emp_ARE_extGAN[,1]/pi), gan_lower = sqrt(Emp_ARE_extGAN[,2]/pi), gan_upper=sqrt(Emp_ARE_extGAN[,3]/pi))
+  dat <- data.frame(x = u_vec, truth = sqrt(Emp_ARE_ori[,1]/pi), truth_lower = sqrt(Emp_ARE_ori[,1]/pi)+(sqrt(Emp_ARE_ori[,2]/pi)-sqrt(Emp_ARE_ori[,1]/pi))/2, 
+                    truth_upper=sqrt(Emp_ARE_ori[,1]/pi)+(sqrt(Emp_ARE_ori[,3]/pi)-sqrt(Emp_ARE_ori[,1]/pi))/2, emu = sqrt(Emp_ARE_XVAE[,1]/pi), 
+                    emu_lower = sqrt(Emp_ARE_XVAE[,1]/pi)+(sqrt(Emp_ARE_XVAE[,2]/pi)-sqrt(Emp_ARE_XVAE[,1]/pi))/2, 
+                    emu_upper=sqrt(Emp_ARE_XVAE[,1]/pi)+(sqrt(Emp_ARE_XVAE[,3]/pi)-sqrt(Emp_ARE_XVAE[,1]/pi))/2,
+                    gan = sqrt(Emp_ARE_extGAN[,1]/pi), 
+                    gan_lower = sqrt(Emp_ARE_extGAN[,1]/pi)+(sqrt(Emp_ARE_extGAN[,2]/pi)-sqrt(Emp_ARE_extGAN[,1]/pi))/2, 
+                    gan_upper=sqrt(Emp_ARE_extGAN[,1]/pi)+(sqrt(Emp_ARE_extGAN[,3]/pi)-sqrt(Emp_ARE_extGAN[,1]/pi))/2)
+  
+  plt <- ggplot(dat,aes(x=x,y=gan)) +
+    geom_line(aes(color=names[3]),linewidth=1) +
+    geom_line(aes(y=truth, color=names[1]),linewidth=1) +
+    geom_line(aes(y=emu, color=names[2]),linewidth=1) +
+    scale_color_manual(values=c('#0674cf', 'red', 'black')) + 
+    geom_ribbon(data=dat,aes(ymin=gan_lower,ymax=gan_upper),alpha=0.2,fill="#4190d1") +
+    geom_ribbon(data=dat,aes(ymin=emu_lower,ymax=emu_upper),alpha=0.2,fill="red") +
+    geom_ribbon(data=dat,aes(ymin=truth_lower,ymax=truth_upper),alpha=0.2,fill="black") +
+    labs(colour="Type") +
+    ylab("Average radius of exceedance (ARE)") + xlab("Quantile") + 
+    theme(plot.title = element_text(hjust = 0.5)) + 
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0), limits=c(0, 13)) + 
+    ggh4x::force_panelsizes(rows = unit(3.05, "in"),
+                            cols = unit(3.05, "in")) + theme(plot.title = element_text(face = 'bold'))
+  
+  legend <- TRUE; show.axis.y <- TRUE
+  if(!legend) plt <- plt + guides(color="none")
+  if(!show.axis.y) plt<- plt + theme( axis.text.y=element_blank(), 
+                                      axis.ticks.y=element_blank(),
+                                      axis.title.y = element_blank())
+  plt
+}

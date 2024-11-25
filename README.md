@@ -19,8 +19,8 @@ A Python package is planned for future development.
 the XVAE. We wish to translate everything into python in the near future
 and deliver a more user-friendly package. For the time being, the users
 can simply download the following scripts: 
-- utils.R 
-- Initializing_XVAE.R
+- XVAE_utils.R 
+- XVAE_initialization.R
 - XVAE_training_loop.R
 
 
@@ -30,10 +30,10 @@ Next, we demonstrate how to train an XVAE using the dataset simulated from Model
 
 ### 1. Generate data-driven knots
 
-First, we need to make sure the file `utils.R` is under your working directory so all the utility functions can be loaded:
+First, we need to make sure the file `XVAE_utils.R` is under your working directory so all the utility functions can be loaded:
 ``` ruby
-source("utils.R")
-load("example_X.RData")
+source("XVAE_utils.R")
+load("./data/example_X.RData")
 ```
 
 Assume the input data `X` is appropriately marginally transformed that has rows representing different locations and columns representing different times, and `stations` stores the 2-D coordinates of each location.
@@ -115,7 +115,7 @@ Here, `output` is a list with
 - `emulations`: A matrix of simulated values for spatial inputs.
 -  `theta_est`: A matrix of estimated parameters from the decoder.
 
-#### Visual comparison
+#### 5.1 Visual comparison
 Now we compare the scatter plot of the spatial input and the emulation:
 ``` ruby
 chosen_time <- 10
@@ -134,9 +134,9 @@ plt31 <- spatial_map(stations, var=output$emulations[,chosen_time], pal = pal,
                      brks.round = 1, tight.brks = TRUE, range=range_t, q25=q25, q75=q75, pt.size=1, raster=FALSE)
 plt31
 ```
-![plot_emu](www/emu.png)
+<img src="www/emu.png" alt="drawing" width="800"/>
 
-#### $\chi_d(u)$ comparison
+#### 5.2 $\chi_d(u)$ comparison
 
 Now we empirically estimate $\chi_d(u),\; u\in (0,1),$ for both the original spatial input and the emulated dataset at $d\approx 1.5$:
 ``` ruby
@@ -144,16 +144,34 @@ chi_plot(X,stations, output$emulations, distance=1.5, legend = TRUE, ylab = expr
 ```
 ![plot_chi](www/chi_plot.png)
 
-#### Quantile-Quantile plots
+#### 5.3 Quantile-Quantile plots
+QQ-plot implemented in the package `extRemes` to compare two data vectors (input & emulation) with 95 percent confidence bands based on the Kolmogorov-Smirnov statistic:
 ``` ruby
 extRemes::qqplot(X[,chosen_time], output$emulations[,chosen_time], regress = FALSE,
                  xlab=expression(paste('Simulated ', X[t])),
                  ylab=expression(paste('Emulated ', X[t])), cex.lab = 1.2,
                   xlim=c(0,19), ylim=c(0,20), main=paste("t =", chosen_time))
 ```
-![plot_qq](www/qqplot.png)
+<img src="www/qqplot.png" alt="drawing" width="400"/>
 
-Summarize the results using the provided script:
+#### 5.4 Areal Radius of Exceedance (ARE)
+This is a novel metric proposed in Section 3.3 of Zhang et al. [[2]](#2). It has many theoretical guarantees, and is specially tailored to evaluate the skill of a spatial model in reproducing dependent extreme.
+
+Specifically, for a fixed regular grid $\mathcal{G}$ with side length $\psi$, a reference location $\mathbf{s}_0$ and $u\in(0,1)$, the ARE is defined as
+$$\widehat{\mathrm{ARE}}_\psi(u) = \left\{\frac{\psi^2\sum_{r=1}^{n_r}\sum_{i=1}^{n_g}\mathbbm{1}(U_{ir}>u, U_{0r}>u)}{\pi\sum_{r=1}^{n_r}\mathbbm{1}(U_{0r}>u)}\right\}^{1/2}.$$
+
+We have that, almost surely,  
+    $$\widehat{\mathrm{ARE}}_\psi(u)\rightarrow\mathrm{ARE}_{\psi}(u)=\left(\psi^2\sum_{i=1}^{n_g}\chi_{0i}(u)/\pi\right)^{1/2},$$
+that is, ARE converges to the square root of the spatial average of the $\chi$-measure.
+
+The previous simulated dataset is not on a regular grid. But XVAE can perform spatial prediction and allows us to examine ARE on a grid with a certain side length.
+
+We can use the following function to compute and visualize ARE:
+``` ruby
+ARE_comparison(stations, U1=U_sim_grid, U2=U_xvae_grid, U3=U_gan_grid, names =c("Truth", "XVAE", "extGAN"))
+```
+<img src="www/ARE.png" alt="drawing" width="400"/>
+
 
 ## Max-infinitely divisible processes
 
