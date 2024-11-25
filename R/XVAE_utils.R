@@ -132,7 +132,7 @@ wss <- function(k, df) {
 #' XVAE_initialization()
 #'
 #' @seealso [torch_tensor()], [relu()], [exp()]
-#'
+#' @import torch
 #' @export
 
 XVAE_initialization <- function(){
@@ -307,7 +307,7 @@ XVAE_initialization <- function(){
 #' @seealso
 #' [torch](https://torch.mlverse.org) for tensor operations, 
 #' [mvtnorm::rmvnorm()] for generating multivariate normal noise.
-#'
+#' @import torch
 #' @export
 
 XVAE_training_loop <- function(){

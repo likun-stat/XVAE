@@ -24,7 +24,8 @@ Imports:
     stats,
     utils,
     FMStable,
-    fields
+    fields,
+    torch
 Suggests: 
     testthat (>= 3.0.0),
     knitr,

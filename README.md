@@ -67,7 +67,7 @@ r <- calc_radius(knots, stations)
 
 Using the knot locations, we calculate the Wendland basis function values and row-standardize them so that they sum to 1 at each location:
 ``` ruby
-eucD <- rdist(stations,as.matrix(knots))
+eucD <- fields::rdist(stations,as.matrix(knots))
 W <- wendland(eucD,r=r)
 W <- sweep(W, 1, rowSums(W), FUN="/")
 dim(W)  # Verify dimensions: `n.s` × `k`
