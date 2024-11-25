@@ -1582,4 +1582,3 @@ ARE_comparison <- function(stations, center=NULL, U1, U2=NULL, U3=NULL, u_vec=NU
 }
 
 
-

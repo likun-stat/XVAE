@@ -22,7 +22,9 @@ Imports:
     tidyterra,
     ggh4x,
     stats,
-    utils
+    utils,
+    FMStable,
+    fields
 Suggests: 
     testthat (>= 3.0.0),
     knitr,
