@@ -200,7 +200,8 @@ The previous simulated dataset is not on a regular grid. But XVAE can perform sp
 
 We can use the following function to compute and visualize ARE:
 ``` ruby
-ARE_comparison(stations, U1=U_sim_grid, U2=U_xvae_grid, U3=U_gan_grid, names =c("Truth", "XVAE", "extGAN"))
+data(copulas)
+ARE_comparison(stations_grid, U1=U_sim_grid, U2=U_xvae_grid, U3=U_gan_grid, names =c("Truth", "XVAE", "extGAN"))
 ```
 <img src="www/ARE.png" alt="drawing" width="400"/>
 

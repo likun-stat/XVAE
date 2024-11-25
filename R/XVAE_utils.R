@@ -1198,7 +1198,7 @@ circ_dist_mat <- function(X, Y){
 #' stations <- data.frame(x = runif(100), y = runif(100), var = rnorm(100))
 #' spatial_map(stations, var = stations$var, title = "Example Spatial Map")
 #' @import ggplot2
-#' @import ggh4x
+#' @importFrom ggh4x force_panelsizes
 #' @export
 spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd"), 
                         title='spatial map', legend.name='val', show.legend=TRUE, show.color=TRUE, show.axis.y = TRUE,
@@ -1220,7 +1220,7 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
             axis.text=element_text(size=13), axis.title.y=element_text(size=14), 
             axis.title.x=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)))+
       ggtitle(title) +
-      force_panelsizes(rows = unit(3.75, "in"),
+      ggh4x::force_panelsizes(rows = unit(3.75, "in"),
                        cols = unit(3.75, "in"))
     return(plt0)
   }
@@ -1252,7 +1252,7 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
               axis.text=element_text(size=13), axis.title.y=element_text(size=14), 
               axis.title.x=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)))+
         ggtitle(title) +
-        force_panelsizes(rows = unit(3.75, "in"),
+        ggh4x::force_panelsizes(rows = unit(3.75, "in"),
                          cols = unit(3.75, "in"))}else{
                            plt1 <- ggplot(stations) +
                              geom_point(size = pt.size, shape = shp, aes( x = x, y = y, color = color.use ), na.rm = TRUE) +
@@ -1266,7 +1266,7 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
                                    axis.ticks.y=element_blank(),
                                    axis.title.y = element_blank())+
                              ggtitle(title) +
-                             force_panelsizes(rows = unit(3.75, "in"),
+                             ggh4x::force_panelsizes(rows = unit(3.75, "in"),
                                               cols = unit(3.75, "in"))
                          }
   }else{
@@ -1279,7 +1279,7 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
             axis.text=element_text(size=13), 
             axis.title=element_text(size=14, margin = margin(t = -4, r = 0, b = 0, l = 0)))+
       ggtitle(title) +
-      force_panelsizes(rows = unit(3.75, "in"),
+      ggh4x::force_panelsizes(rows = unit(3.75, "in"),
                        cols = unit(3.75/aspect_ratio, "in"))
   }
   return(plt1)
@@ -1315,7 +1315,7 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
 #' chi_plot(X, stations, emulation, distance=0.5)
 #' @import ggplot2
 #' @import fields
-#' @import ggh4x
+#' @importFrom ggh4x force_panelsizes
 #' @export
 chi_plot <- function(X, stations, emulation, distance, tol=0.001,
                      u_vec=c(seq(0,0.98,0.01),seq(0.9801,0.9999,0.0001)),
@@ -1434,7 +1434,7 @@ chi_plot <- function(X, stations, emulation, distance, tol=0.001,
     theme(plot.title = element_text(hjust = 0.5)) + 
     scale_x_continuous(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0), limits = c(0,1)) + 
-    force_panelsizes(rows = unit(3.05, "in"),
+    ggh4x::force_panelsizes(rows = unit(3.05, "in"),
                      cols = unit(3.05, "in"))
   
   if(!legend) plt <- plt + guides(color="none")
@@ -1476,10 +1476,10 @@ chi_plot <- function(X, stations, emulation, distance, tol=0.001,
 #' @examples
 #' # Example usage:
 #' data(copulas)
-#' ARE_comparison(stations, U1=U_sim_grid, U2=U_xvae_grid, U3=U_gan_grid, names =c("Truth", "XVAE", "extGAN"))
+#' ARE_comparison(stations_grid, U1=U_sim_grid, U2=U_xvae_grid, U3=U_gan_grid, names =c("Truth", "XVAE", "extGAN"))
 #' @import ggplot2
 #' @import fields
-#' @import ggh4x
+#' @importFrom ggh4x force_panelsizes
 #' @import tidyterra
 #' @export
 ARE_comparison <- function(stations, center=NULL, U1, U2=NULL, U3=NULL, u_vec=NULL, names =c("Truth", "XVAE", "extGAN")){
@@ -1570,7 +1570,7 @@ ARE_comparison <- function(stations, center=NULL, U1, U2=NULL, U3=NULL, u_vec=NU
     theme(plot.title = element_text(hjust = 0.5)) + 
     scale_x_continuous(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0), limits=c(0, 13)) + 
-    force_panelsizes(rows = unit(3.05, "in"),
+    ggh4x::force_panelsizes(rows = unit(3.05, "in"),
                             cols = unit(3.05, "in")) + theme(plot.title = element_text(face = 'bold'))
   
   legend <- TRUE; show.axis.y <- TRUE
