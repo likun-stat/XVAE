@@ -109,7 +109,7 @@ Y_approx <- Y_star - relu(Y_star-X)
 Now we initialize the weights and biases for the encoder in the VAE and define them as `torch` tensor:
 ``` ruby
 ## -------------------- Initializing VAE --------------------
-XVAE_initialization()
+XVAE_initialization(alpha=alpha)
 ```
 Note this function employs and stores variables in the global environment.
 

@@ -16,7 +16,8 @@ License: GPL-3
 Encoding: UTF-8
 LazyData: true
 Depends: 
-    R (>= 4.0.0)
+    R (>= 4.0.0),
+    torch
 Imports: 
     ggplot2,
     tidyterra,
@@ -24,8 +25,7 @@ Imports:
     stats,
     utils,
     FMStable,
-    fields,
-    torch
+    fields
 Suggests: 
     testthat (>= 3.0.0),
     knitr,

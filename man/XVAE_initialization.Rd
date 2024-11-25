@@ -4,7 +4,7 @@
 \alias{XVAE_initialization}
 \title{Initialize the XVAE Model Components}
 \usage{
-XVAE_initialization()
+XVAE_initialization(alpha = 0.5)
 }
 \value{
 None. The function uses global assignment (\verb{<<-}) to initialize variables in the global environment.

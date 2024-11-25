@@ -135,7 +135,7 @@ wss <- function(k, df) {
 #' @import torch
 #' @export
 
-XVAE_initialization <- function(){
+XVAE_initialization <- function(alpha=0.5){
   ## -------------------- Initializing Encoder --------------------
   # Convert data matrices X and W to PyTorch tensors with float dtype.
   X_tensor <<- torch_tensor(X, dtype=torch_float())
