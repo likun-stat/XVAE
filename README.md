@@ -124,7 +124,7 @@ nEpoch = 10000
 
 The main training process, where the VAE optimizes the ELBO (Evidence Lower Bound; see Algorithm 2 in Zhang et al. [[2]](#2)):
 ``` ruby
-XVAE_training_loop(nEpoch=nEpoch)
+XVAE_training_loop(nEpoch=nEpoch, learning_rate = learning_rate, alpha_v=alpha_v)
 ```
 Note this function employs and stores variables in the global environment.
 
