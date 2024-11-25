@@ -14,7 +14,7 @@ A Python package is planned for future development.
 ## Installation Guide
 The **XVAE** package can be easily installed directly from GitHub using the `devtools` or `remotes` package in `R`. Below are the steps to install and start using the package.
 
-## Step 1: Install Dependencies
+### Install from GitHub
 
 First, ensure that you have the `devtools` or `remotes` package installed. You can install them with the following command:
 
