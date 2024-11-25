@@ -310,7 +310,7 @@ XVAE_initialization <- function(alpha=0.5){
 #' @import torch
 #' @export
 
-XVAE_training_loop <- function(){
+XVAE_training_loop <- function(nEpoch){
   old_loss <<- -Inf
   current_interval <<- 0
   for (t in 1:nEpoch) {

@@ -4,7 +4,7 @@
 \alias{XVAE_training_loop}
 \title{XVAE Training Loop}
 \usage{
-XVAE_training_loop()
+XVAE_training_loop(nEpoch)
 }
 \description{
 This function performs training for XVAE.
