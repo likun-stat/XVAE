@@ -31,7 +31,10 @@ or if you are using the remotes package:
 remotes::install_github("likun-stat/XVAE")
 ```
 
-This will download and install the XVAE package from the GitHub repository.
+This will download and install the XVAE package from the GitHub repository. Then load the package:
+``` ruby
+library(XVAE)
+```
 
 
 ### Notes
