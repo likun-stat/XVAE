@@ -311,6 +311,14 @@ XVAE_initialization <- function(alpha=0.5){
 #' @export
 
 XVAE_training_loop <- function(alpha, nEpoch, learning_rate, alpha_v){
+  ## -----------------------------------------------------------------------------
+  ## -----------------------------------------------------------------------------
+  # This function first initializes the encoder and decoder components of an XVAE,
+  # including weights, biases, and tensors for the forward pass, reparameterization trick,
+  # and likelihood evaluation.
+  ## -----------------------------------------------------------------------------
+  ## -----------------------------------------------------------------------------
+  
   ## -------------------- Initializing Encoder --------------------
   # Convert data matrices X and W to PyTorch tensors with float dtype.
   X_tensor <<- torch_tensor(X, dtype=torch_float())
@@ -439,6 +447,12 @@ XVAE_training_loop <- function(alpha, nEpoch, learning_rate, alpha_v){
   const <<- 1/(1-alpha); const1 <<- 1/(1-alpha)-1; const3 <<- log(const1)
   W_alpha_tensor <<- W_tensor$pow(1/alpha)
   
+  
+  ## ------------------------------------------------------------------------------
+  ## ------------------------------------------------------------------------------
+  ## ---------------------------- Start main loop ---------------------------------
+  ## ------------------------------------------------------------------------------
+  ## ------------------------------------------------------------------------------
   old_loss <- -Inf
   current_interval <- 0
   for (t in 1:nEpoch) {
