@@ -50,7 +50,6 @@ area where the model exceeds the threshold at the center of the domain.
 }
 \examples{
 # Example usage:
-load("./data/copulas.RData")
+data(copulas)
 ARE_comparison(stations, U1=U_sim_grid, U2=U_xvae_grid, U3=U_gan_grid, names =c("Truth", "XVAE", "extGAN"))
-
 }
