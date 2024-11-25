@@ -1447,7 +1447,8 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
 #' @export
 chi_plot <- function(X, stations, emulation, distance, tol=0.001,
                      u_vec=c(seq(0,0.98,0.01),seq(0.9801,0.9999,0.0001)),
-                     L=25, ylab=expression(chi[u]), uniform=FALSE, legend = TRUE, show.axis.y = TRUE, duplicated = TRUE){
+                     L=25, ylab=expression(chi[u]), uniform=FALSE, legend = TRUE, 
+                     show.axis.y = TRUE, duplicated = TRUE, alpha=1/2){
   require(fields)
   require(ggplot2)
   d <- distance

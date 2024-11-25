@@ -16,7 +16,8 @@ chi_plot(
   uniform = FALSE,
   legend = TRUE,
   show.axis.y = TRUE,
-  duplicated = TRUE
+  duplicated = TRUE,
+  alpha = 1/2
 )
 }
 \arguments{
