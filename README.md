@@ -105,15 +105,9 @@ Y_star <- (W_alpha)%*%(Z_approx)
 Y_approx <- Y_star - relu(Y_star-X) 
 ```
 
-### 3. Define VAE Weights and Encoder-Decoder Initialization
-Now we initialize the weights and biases for the encoder in the VAE and define them as `torch` tensor:
-``` ruby
-## -------------------- Initializing VAE --------------------
-XVAE_initialization(alpha=alpha)
-```
-Note this function employs and stores variables in the global environment.
 
-### 4. Training the VAE
+
+### 3. Initializing and training the VAE
 Next, we configure the learning rate, activation functions, and other network parameters. These parameters might _require tuning_ based on dataset complexity and model performance.
 ``` ruby
 learning_rate <- -1e-15; alpha_v <- 0.9
@@ -122,7 +116,7 @@ nEpoch = 10000
 ```
 ### Training Loop
 
-The main training process, where the VAE optimizes the ELBO (Evidence Lower Bound; see Algorithm 2 in Zhang et al. [[2]](#2)):
+The main training process, in which the function first initialize the weights and biases for the encoder in the VAE and define them as `torch` tensor. Then the VAE optimizes the ELBO (Evidence Lower Bound; see Algorithm 2 in Zhang et al. [[2]](#2)):
 ``` ruby
 XVAE_training_loop(alpha=alpha, nEpoch=nEpoch, learning_rate = learning_rate, alpha_v=alpha_v)
 ```
