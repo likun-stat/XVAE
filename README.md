@@ -48,16 +48,16 @@ Next, we demonstrate how to train an XVAE using the dataset simulated from Model
 
 ### 1. Generate data-driven knots
 
-First, we need to make sure the file `XVAE_utils.R` is under your working directory so all the utility functions can be loaded:
+First, we need to load the simulate data:
 ``` ruby
-source("./R/XVAE_utils.R")
-load("./data/example_X.RData")
+data(example_X)
 ```
 
 Assume the input data `X` is appropriately marginally transformed that has rows representing different locations and columns representing different times, and `stations` stores the 2-D coordinates of each location.
 
 Then, we apply Algorithm 1 in the Supplementary Material of Zhang et al. [[2]](#2) to select data-driven knots based on high values (e.g., `thresh_p=0.95`) in the input data matrix and also determine the radius for the Wendland basis functions:
 ``` ruby
+?data_driven_knots
 knots <- data_driven_knots(X, stations, 0.95, echo=TRUE)
 r <- calc_radius(knots, stations)
 ```
@@ -232,7 +232,11 @@ pre-specified knots.
 $\theta_k\geq 0$.
 
 ## (Conditional) Variational autoencoder
-
+A promising direction for future work is to implement a conditional VAE (CVAE;
+Sohn et al., 2015[[3]](#3)) with a similar underlying max-id model; in such a model, we can allow
+the parameters of both the encoder and decoder to change conditional on different climate
+scenarios (e.g., radiative forcings, seasons, soil conditions, etc.). This will allow us to
+simulate new data under different conditions.
 ![plot1](www/Extremes_CVAE.png)
 
 ## References
@@ -245,3 +249,5 @@ precipitation. *Journal of the American Statistical Association*,
 <a id="2">[2]</a> Zhang, Likun, Xiaoyu Ma, Christopher K. Wikle, and
 Raphaël Huser. "Flexible and efficient spatial extremes emulation via
 variational autoencoders." arXiv preprint arXiv:2307.08079 (2024).
+
+<a id="3">[3]</a> Kihyuk Sohn, Honglak Lee, and Xinchen Yan. Learning Structured Output Representation using Deep Conditional Generative Models. _Advances in Neural Information Processing Systems_, **28**.
