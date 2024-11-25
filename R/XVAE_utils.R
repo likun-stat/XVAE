@@ -1162,50 +1162,50 @@ gradient_full_cond_logscale <-  function(log_v_t, W_alpha, X_t, tau, m){
 #'   \item `emulations`: A matrix of simulated values for spatial inputs.
 #'   \item `theta_est`: A matrix of estimated parameters from the decoder.
 #' }
-#'
+#' @importFrom VGAM rfrechet
 #' @export
 emulate_from_trained_XVAE <- function(){
   
   ### -------- Encoder for v_t --------
-  h <- w_1$mm(X_tensor)$add(b_1)$relu()
-  h_1 <- w_2$mm(h)$add(b_2)$relu()
-  sigma_sq_vec <- w_3$mm(h_1)$add(b_3)$exp()
-  mu <- w_4$mm(h_1)$add(b_4)$relu()
+  h <<- w_1$mm(X_tensor)$add(b_1)$relu()
+  h_1 <<- w_2$mm(h)$add(b_2)$relu()
+  sigma_sq_vec <<- w_3$mm(h_1)$add(b_3)$exp()
+  mu <<- w_4$mm(h_1)$add(b_4)$relu()
   
   ### -------- Encoder for v_t_prime --------
-  h_prime <- w_1_prime$mm(X_tensor)$add(b_1_prime)$relu()
-  h_1_prime <- w_2_prime$mm(h_prime)$add(b_2_prime)$relu()
+  h_prime <<- w_1_prime$mm(X_tensor)$add(b_1_prime)$relu()
+  h_1_prime <<- w_2_prime$mm(h_prime)$add(b_2_prime)$relu()
   
   ### -------- Activation via Laplace transformation --------
-  h_1_prime_laplace <- h_1_prime$multiply(-0.2)$exp()$mean(dim=2)
-  h_1_prime_t <- h_1_prime_laplace$log()$multiply(-1)
-  h_1_prime_to_theta <- (0.2-h_1_prime_t$pow(2))$pow(2)$divide(4*h_1_prime_t$pow(2))$view(c(k,1))
-  theta_propagate <- h_1_prime_to_theta$expand(c(k,n.t))
+  h_1_prime_laplace <<- h_1_prime$multiply(-0.2)$exp()$mean(dim=2)
+  h_1_prime_t <<- h_1_prime_laplace$log()$multiply(-1)
+  h_1_prime_to_theta <<- (0.2-h_1_prime_t$pow(2))$pow(2)$divide(4*h_1_prime_t$pow(2))$view(c(k,1))
+  theta_propagate <<- h_1_prime_to_theta$expand(c(k,n.t))
   
-  sigma_sq_vec_prime <- w_3_prime$mm(theta_propagate)$add(b_3_prime)$exp() #w_3_prime$mm(h_1_prime)$add(b_3_prime)$exp()
-  mu_prime <- w_4_prime$mm(theta_propagate)$add(b_4_prime) #w_4_prime$mm(h_1_prime)$add(b_4_prime)
+  sigma_sq_vec_prime <<- w_3_prime$mm(theta_propagate)$add(b_3_prime)$exp() #w_3_prime$mm(h_1_prime)$add(b_3_prime)$exp()
+  mu_prime <<- w_4_prime$mm(theta_propagate)$add(b_4_prime) #w_4_prime$mm(h_1_prime)$add(b_4_prime)
   
   
-  Epsilon <- t(abs(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k)))))
-  Epsilon_prime <- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
+  Epsilon <<- t(abs(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k)))))
+  Epsilon_prime <<- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
   
-  Epsilon <- torch_tensor(Epsilon, dtype=torch_float())
-  Epsilon_prime <- torch_tensor(Epsilon_prime, dtype=torch_float())
+  Epsilon <<- torch_tensor(Epsilon, dtype=torch_float())
+  Epsilon_prime <<- torch_tensor(Epsilon_prime, dtype=torch_float())
   
   ### -------- Re-parameterization trick --------
-  v_t <- mu + sqrt(sigma_sq_vec)*Epsilon
-  v_t_prime <- mu_prime + sqrt(sigma_sq_vec_prime)*Epsilon_prime
+  v_t <<- mu + sqrt(sigma_sq_vec)*Epsilon
+  v_t_prime <<- mu_prime + sqrt(sigma_sq_vec_prime)*Epsilon_prime
   
   ### -------- Decoder --------
-  l <- w_5$mm(v_t_prime)$add(b_5)$relu()
-  l_1 <- w_6$mm(l)$add(b_6)$relu()
-  theta_t <- w_7$mm(l_1)$add(b_7)$relu()
+  l <<- w_5$mm(v_t_prime)$add(b_5)$relu()
+  l_1 <<- w_6$mm(l)$add(b_6)$relu()
+  theta_t <<- w_7$mm(l_1)$add(b_7)$relu()
   
-  y_star <- lrelu(W_alpha_tensor$mm(v_t)$add(b_8))
+  y_star <<- lrelu(W_alpha_tensor$mm(v_t)$add(b_8))
   
   ##Decoder
-  station_Simulations_All <- matrix(rfrechet(n.s*n.t, shape=1, location = m, scale = tau), nrow=n.s) * as_array((y_star))
-  theta_sim <- as_array(theta_t)
+  station_Simulations_All <<- matrix(rfrechet(n.s*n.t, shape=1, location = m, scale = tau), nrow=n.s) * as_array((y_star))
+  theta_sim <<- as_array(theta_t)
   return(list(emulations = station_Simulations_All, theta_est = theta_sim))
 }
 
