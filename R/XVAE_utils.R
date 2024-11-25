@@ -310,7 +310,7 @@ XVAE_initialization <- function(alpha=0.5){
 #' @import torch
 #' @export
 
-XVAE_training_loop <- function(nEpoch, learning_rate, alpha_v){
+XVAE_training_loop <- function(alpha, nEpoch, learning_rate, alpha_v){
   ## -------------------- Initializing Encoder --------------------
   # Convert data matrices X and W to PyTorch tensors with float dtype.
   X_tensor <<- torch_tensor(X, dtype=torch_float())
