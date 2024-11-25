@@ -180,13 +180,15 @@ This is a novel metric proposed in Section 3.3 of Zhang et al. [[2]](#2). It has
 Specifically, for a fixed regular grid $\mathcal{G}$ with side length $\psi$, a reference location $\mathbf{s}_0$ and $u\in(0,1)$, the ARE is defined as
 
 <p align="center">
-<img src="https://latex.codecogs.com/svg.image?\hat{\mathrm{ARE}}_\psi(u) = \left\{\frac{\psi^2\sum_{r=1}^{n_r}\sum_{i=1}^{n_g}I(U_{ir}>u, U_{0r}>u)}{\pi\sum_{r=1}^{n_r}I(U_{0r}>u)}\right\}^{1/2}." />
+<img src="www/ARE_def.png" alt="drawing" width="400"/>
 </p>
 
 We have that, almost surely,  
 
 <p align="center">
+
 <img src="https://latex.codecogs.com/svg.image?\hat{\mathrm{ARE}}_\psi(u)\rightarrow\mathrm{ARE}_{\psi}(u)=\left(\psi^2\sum_{i=1}^{n_g}\chi_{0i}(u)/\pi\right)^{1/2}," />
+
 </p>
 
 that is, ARE converges to the square root of the spatial average of the $\chi$-measure.
