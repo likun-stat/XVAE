@@ -11,17 +11,35 @@ high-resolution climate models by integrating spatial extreme value theory with 
 The methodology follows the max-infinitely divisible process proposed by Bopp et al. (2021)[[1]](#1) and is implemented using `R`. 
 A Python package is planned for future development.
 
-## Implementation Guide
+## Installation Guide
+The **XVAE** package can be easily installed directly from GitHub using the `devtools` or `remotes` package in `R`. Below are the steps to install and start using the package.
 
-### Requirements
-1. **Dependencies**: Install `R` libraries including `torch`, `dplyr`, `VGAM`, `extRemes` and any required visualization libraries such as `ggplot`.
+## Step 1: Install Dependencies
+
+First, ensure that you have the `devtools` or `remotes` package installed. You can install them with the following command:
+
+``` ruby
+install.packages("devtools")  # or install.packages("remotes")
+```
+Once you have the required package installed, you can install XVAE directly from GitHub using the following command:
+``` ruby
+devtools::install_github("likun-stat/XVAE")
+```
+
+or if you are using the remotes package:
+``` ruby
+remotes::install_github("likun-stat/XVAE")
+```
+
+This will download and install the XVAE package from the GitHub repository.
+
+
+### Notes
+1. **Dependencies**: Including `R` libraries including `torch`, `dplyr`, `VGAM`, `extRemes` and any required visualization libraries such as `ggplot`.
 2. The users can follow the demonstration shown below to learn the implementation of
 the XVAE. We wish to translate everything into python in the near future
 and deliver a more user-friendly package. For the time being, the users
-can simply download the following scripts: 
-- XVAE_utils.R 
-- XVAE_initialization.R
-- XVAE_training_loop.R
+check the help pages by calling `?function_name`.
 
 
 ## Step-by-Step Instructions
@@ -32,7 +50,7 @@ Next, we demonstrate how to train an XVAE using the dataset simulated from Model
 
 First, we need to make sure the file `XVAE_utils.R` is under your working directory so all the utility functions can be loaded:
 ``` ruby
-source("XVAE_utils.R")
+source("./R/XVAE_utils.R")
 load("./data/example_X.RData")
 ```
 
@@ -88,8 +106,9 @@ Y_approx <- Y_star - relu(Y_star-X)
 Now we initialize the weights and biases for the encoder in the VAE and define them as `torch` tensor:
 ``` ruby
 ## -------------------- Initializing VAE --------------------
-source("Initializing_XVAE.R")
+XVAE_initialization()
 ```
+Note this function employs and stores variables in the global environment.
 
 ### 4. Training the VAE
 Next, we configure the learning rate, activation functions, and other network parameters. These parameters might _require tuning_ based on dataset complexity and model performance.
@@ -102,8 +121,9 @@ nEpoch = 10000
 
 The main training process, where the VAE optimizes the ELBO (Evidence Lower Bound; see Algorithm 2 in Zhang et al. [[2]](#2)):
 ``` ruby
-source("XVAE_training_loop.R")
+XVAE_training_loop()
 ```
+Note this function employs and stores variables in the global environment.
 
 ### 5. Post-Processing and Results
 

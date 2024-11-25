@@ -1,0 +1,31 @@
+Package: XVAE
+Type: Package
+Title: Utilities for XVAE: emulator for spatial extremes
+Version: 1.1
+Authors@R: 
+    person(given = "Likun",
+           family = "Zhang",
+           role = c("aut", "cre"),
+           email = "likun.zhang@missouri.edu",
+           comment = c(ORCID = "0000-0001-5458-4556"))
+Description: A collection of utility functions to support the analysis and implementation 
+    of extreme value models, including XVAE and related methods. This package provides tools 
+    for calculating exceedance probabilities, plotting results, and other helper functions 
+    for spatial extreme value analysis.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Depends: 
+    R (>= 4.0.0)
+Imports: 
+    ggplot2,
+    tidyterra,
+    ggh4x,
+    stats,
+    utils
+Suggests: 
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2

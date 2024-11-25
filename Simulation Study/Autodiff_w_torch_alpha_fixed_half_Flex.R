@@ -63,7 +63,7 @@ part1 = sum((-2)*log(X)+log(y_true_star)) + (-tau*sum(X^(-1)*y_true_star)) # p(X
 part2 = log_v  
 
 log(tau) + (part1 + part2)/(n.s*n.t) # -1.952435
-
+save(X, stations, file="./data/example_X.rda", compress = "bzip2")
 
 
 

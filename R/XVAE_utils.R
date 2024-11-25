@@ -91,6 +91,399 @@ wss <- function(k, df) {
 
 
 
+#' Initialize the XVAE Model Components
+#'
+#' This function initializes the encoder and decoder components of an XVAE,
+#' including weights, biases, and tensors for the forward pass, reparameterization trick, and likelihood evaluation.
+#'
+#' @details 
+#' The initialization process consists of the following steps:
+#' 1. **Encoder Initialization**:
+#'    - Converts input matrices (`X` and `W`) to PyTorch tensors.
+#'    - Computes initial weights for the encoder using a least squares approximation.
+#'    - Initializes biases and weights for all layers of the encoder.
+#'    - Implements forward passes through the encoder network with ReLU activation.
+#'    - Computes latent variables (`mu` and `sigma_sq`) and uses the reparameterization trick to sample latent variables.
+#'
+#' 2. **Decoder Initialization**:
+#'    - Mirrors the structure of the encoder with matching weights and biases for reconstruction.
+#'    - Sets up additional layers with identity matrices and small biases for robust decoding.
+#'
+#' 3. **Momentum Initialization**:
+#'    - Initializes momentum tensors (`velocity`) for all weights and biases to support gradient updates.
+#'
+#' 4. **Likelihood Evaluation**:
+#'    - Precomputes constants and tensors for evaluating the explicit power stable (expPS) likelihood using Zolotarev's approximation.
+#'
+#' @return None. The function uses global assignment (`<<-`) to initialize variables in the global environment.
+#' These include:
+#' - `w_1, w_2, ..., w_7`: Weight tensors for encoder and decoder layers.
+#' - `b_1, b_2, ..., b_8`: Bias tensors for encoder and decoder layers.
+#' - `v_t`: Latent variable samples from the reparameterization trick.
+#' - `y_approx`: Reconstructed output of the XVAE.
+#' - Precomputed tensors (`Zolo_vec`, `W_alpha_tensor`) for likelihood evaluation.
+#'
+#' @note 
+#' - This function relies on PyTorch tensors for computations, requiring the `torch` package in R.
+#' - Global assignments (`<<-`) are used extensively, which may impact modularity and debugging.
+#'
+#' @examples
+#' # Ensure X, W, and Z_approx are defined in the global environment
+#' XVAE_initialization()
+#'
+#' @seealso [torch_tensor()], [relu()], [exp()]
+#'
+#' @export
+
+XVAE_initialization <- function(){
+  ## -------------------- Initializing Encoder --------------------
+  # Convert data matrices X and W to PyTorch tensors with float dtype.
+  X_tensor <<- torch_tensor(X, dtype=torch_float())
+  W_tensor <<- torch_tensor(W, dtype=torch_float())
+  
+  # Compute initial weights for the encoder's first layer using a least squares solution.
+  tmp <<- qr.solve(a=t(X), b=t(Z_approx))
+  w_1 <<- t(tmp)
+  w_1 <<- torch_tensor(w_1, dtype=torch_float(), requires_grad = TRUE)
+  
+  # Initialize biases for the first layer of the encoder with zeros.
+  b_1 <<- matrix(rep(0, k), ncol=1)
+  b_1 <<- torch_tensor(b_1, dtype=torch_float(), requires_grad = TRUE)
+  
+  # Initialize weights and biases for additional layers of the encoder.
+  # Layer 2: weights initialized as identity matrix, biases slightly positive.
+  w_2 <<- diag(k)
+  w_2 <<- torch_tensor(w_2, dtype=torch_float(), requires_grad = TRUE)
+  b_2 <<- matrix(rep(0.00001, k), ncol=1)
+  b_2 <<- torch_tensor(b_2, dtype=torch_float(), requires_grad = TRUE)
+  
+  # Layer 3: weights initialized to zero, biases to a negative value (-15).
+  w_3 <<- 0 * diag(k)
+  w_3 <<- torch_tensor(w_3, dtype=torch_float(), requires_grad = TRUE)
+  b_3 <<- matrix(rep(-15, k), ncol=1)
+  b_3 <<- torch_tensor(b_3, dtype=torch_float(), requires_grad = TRUE)
+  
+  # Layer 4: weights initialized as identity matrix, biases as zeros.
+  w_4 <<- diag(k)
+  w_4 <<- torch_tensor(w_4, dtype=torch_float(), requires_grad = TRUE)
+  b_4 <<- matrix(rep(0, k), ncol=1)
+  b_4 <<- torch_tensor(b_4, dtype=torch_float(), requires_grad = TRUE)
+  
+  # Forward pass through the encoder network with ReLU activation.
+  h <<- w_1$mm(X_tensor)$add(b_1)$relu()
+  h_1 <<- w_2$mm(h)$add(b_2)$relu()
+  
+  # Compute latent variables: mean (mu) and variance (sigma^2).
+  sigma_sq_vec <<- w_3$mm(h_1)$add(b_3)$exp()
+  mu <<- w_4$mm(h_1)$add(b_4)$relu()
+  
+  ## -------------------- Re-parameterization trick --------------------
+  # Introduce random noise (Epsilon) for the VAE re-parameterization trick.
+  Epsilon <<- matrix(abs(rnorm(k * n.t)) + 0.1, nrow=k)
+  Epsilon <<- torch_tensor(Epsilon, dtype=torch_float())
+  
+  # Generate latent variable samples (v_t) using mu and sigma^2.
+  v_t <<- mu + sqrt(sigma_sq_vec) * Epsilon
+  
+  # Adjust latent samples using weight matrix W and apply ReLU to correct for residuals.
+  b_8 <<- as_array((W_tensor^(1/alpha))) %*% as_array(v_t) - X
+  b_8 <<- array(-relu(b_8), dim=dim(b_8))
+  b_8 <<- torch_tensor(b_8, dtype=torch_float(), requires_grad = TRUE)
+  
+  # Reconstructed output from the encoder.
+  y_approx <<- (W_tensor^(1/alpha))$mm(v_t) + b_8
+  
+  ## -------------------- Initializing Decoder --------------------
+  # Initialize weights and biases for the decoder, mirroring the encoder structure.
+  w_1_prime <<- as_array(w_1)
+  w_1_prime <<- torch_tensor(w_1_prime, dtype=torch_float(), requires_grad = TRUE)
+  w_2_prime <<- matrix(diag(k), nrow=k)
+  w_2_prime <<- torch_tensor(w_2_prime, dtype=torch_float(), requires_grad = TRUE)
+  w_3_prime <<- matrix(rep(0, k * k), nrow=k)
+  w_3_prime <<- torch_tensor(w_3_prime, dtype=torch_float(), requires_grad = TRUE)
+  w_4_prime <<- matrix(diag(k), nrow=k)
+  w_4_prime <<- torch_tensor(w_4_prime, dtype=torch_float(), requires_grad = TRUE)
+  
+  b_1_prime <<- matrix(rep(0, k), ncol=1)
+  b_1_prime <<- torch_tensor(b_1_prime, dtype=torch_float(), requires_grad = TRUE)
+  b_2_prime <<- matrix(rep(0.05, k), ncol=1)
+  b_2_prime <<- torch_tensor(b_2_prime, dtype=torch_float(), requires_grad = TRUE)
+  b_3_prime <<- matrix(rep(-10, k), ncol=1)
+  b_3_prime <<- torch_tensor(b_3_prime, dtype=torch_float(), requires_grad = TRUE)
+  b_4_prime <<- matrix(rep(0, k), ncol=1)
+  b_4_prime <<- torch_tensor(b_4_prime, dtype=torch_float(), requires_grad = TRUE)
+  
+  # Additional weights for the decoder, initialized as identity matrices.
+  w_5 <<- diag(k)
+  w_5 <<- torch_tensor(w_5, dtype=torch_float(), requires_grad = TRUE)
+  w_6 <<- diag(k)
+  w_6 <<- torch_tensor(w_6, dtype=torch_float(), requires_grad = TRUE)
+  w_7 <<- diag(k)
+  w_7 <<- torch_tensor(w_7, dtype=torch_float(), requires_grad = TRUE)
+  
+  # Biases for the additional decoder layers, initialized with small positive values.
+  b_5 <<- matrix(rep(1e-6, k), ncol=1)
+  b_5 <<- torch_tensor(b_5, dtype=torch_float(), requires_grad = TRUE)
+  b_6 <<- matrix(rep(1e-6, k), ncol=1)
+  b_6 <<- torch_tensor(b_6, dtype=torch_float(), requires_grad = TRUE)
+  b_7 <<- matrix(rep(1e-6, k), ncol=1)
+  b_7 <<- torch_tensor(b_7, dtype=torch_float(), requires_grad = TRUE)
+  
+  # Initialize momentum tensors (velocities) for gradient updates.
+  w_1_velocity <<- torch_zeros(w_1$size())
+  w_2_velocity <<- torch_zeros(w_2$size())
+  w_3_velocity <<- torch_zeros(w_3$size())
+  w_4_velocity <<- torch_zeros(w_4$size())
+  b_1_velocity <<- torch_zeros(b_1$size())
+  b_2_velocity <<- torch_zeros(b_2$size())
+  b_3_velocity <<- torch_zeros(b_3$size())
+  b_4_velocity <<- torch_zeros(b_4$size())
+  w_1_prime_velocity <<- torch_zeros(w_1_prime$size())
+  w_2_prime_velocity <<- torch_zeros(w_2_prime$size())
+  w_3_prime_velocity <<- torch_zeros(w_3_prime$size())
+  w_4_prime_velocity <<- torch_zeros(w_4_prime$size())
+  b_1_prime_velocity <<- torch_zeros(b_1_prime$size())
+  b_2_prime_velocity <<- torch_zeros(b_2_prime$size())
+  b_3_prime_velocity <<- torch_zeros(b_3_prime$size())
+  b_4_prime_velocity <<- torch_zeros(b_4_prime$size())
+  
+  w_5_velocity <<- torch_zeros(w_5$size())
+  w_6_velocity <<- torch_zeros(w_6$size())
+  w_7_velocity <<- torch_zeros(w_7$size())
+  b_5_velocity <<- torch_zeros(b_5$size())
+  b_6_velocity <<- torch_zeros(b_6$size())
+  b_7_velocity <<- torch_zeros(b_7$size())
+  b_8_velocity <<- torch_zeros(b_8$size())
+  
+  ## -------------------- For evaluating expPS likelihood --------------------
+  # Precompute terms for likelihood evaluation using Zolotarev's approximation.
+  n_zolo <<- 1e3
+  vec <<- Zolo_A(pi*seq(1/2,n_zolo-1/2,1)/n_zolo, alpha)
+  Zolo_vec <<- torch_tensor(matrix(vec, nrow=1,ncol=n_zolo), dtype=torch_float(), requires_grad = FALSE) 
+  Zolo_vec_double <<- torch_tensor(Zolo_vec, dtype = torch_float64(), requires_grad = FALSE)
+  const <<- 1/(1-alpha); const1 <<- 1/(1-alpha)-1; const3 <<- log(const1)
+  W_alpha_tensor <<- W_tensor$pow(1/alpha)
+}
+
+
+
+#' XVAE Training Loop
+#'
+#' This function performs training for XVAE.
+#' It implements forward passes, evidence lower bound (ELBO) computation, and 
+#' parameter updates using backpropagation.
+#'
+#' @details
+#' The `XVAE_training_loop` function performs the following key steps for training:
+#' 
+#' - **Learning Rate and Momentum Adjustment**: Dynamically adjusts the learning rate and momentum
+#'   at regular intervals based on the logarithmic scale of the epoch count.
+#' 
+#' - **Forward Pass**:
+#'   - Random noise is generated for the reparameterization trick.
+#'   - Encoders are applied to generate latent space representations for primary and auxiliary spaces.
+#'   - Decoding is performed to reconstruct the input data.
+#' 
+#' - **ELBO Computation**:
+#'   - Reconstruction loss: Measures the error in reconstructing input data.
+#'   - Latent space regularization: Enforces structure in the learned latent representations.
+#'   - Gaussian prior penalty: Regularizes the latent variables using a Gaussian prior.
+#' 
+#' - **Backpropagation**:
+#'   - Gradients of the ELBO loss with respect to all parameters are computed.
+#' 
+#' - **Parameter Updates**:
+#'   - Parameters are updated using momentum-based gradient descent.
+#'   - Gradients are reset after each update.
+#' 
+#' @note
+#' The function modifies several global variables using the `<<-` operator. These include parameters
+#' (e.g., weights and biases) and intermediate variables used during the training process.
+#' 
+#' @examples
+#' # Initialize required global variables before running the function
+#' XVAE_training_loop()
+#' 
+#' @seealso
+#' [torch](https://torch.mlverse.org) for tensor operations, 
+#' [mvtnorm::rmvnorm()] for generating multivariate normal noise.
+#'
+#' @export
+
+XVAE_training_loop <- function(){
+  old_loss <<- -Inf
+  current_interval <<- 0
+  for (t in 1:nEpoch) {
+    # Adapt learning rate and momentum at regular intervals
+    tmp_interval <<- round(log2(t))
+    if(tmp_interval%%4 == 0 & tmp_interval>current_interval) { learning_rate <<- 2 * learning_rate; alpha_v <<- 0.99*alpha_v; current_interval <<- tmp_interval}
+    
+    ### -------- Forward pass --------
+    # Generate random noise for reparameterization trick
+    Epsilon <<- t(0.1+abs(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k)))))
+    Epsilon_prime <<- t(mvtnorm::rmvnorm(n.t, mean=rep(0, k), sigma = diag(rep(1, k))))
+    Epsilon <<- torch_tensor(Epsilon,dtype=torch_float())
+    Epsilon_prime <<- torch_tensor(Epsilon_prime,dtype=torch_float())
+    
+    
+    ### -------- Encoder for Primary Latent Space --------
+    h <<- w_1$mm(X_tensor)$add(b_1)$relu()
+    h_1 <<- w_2$mm(h)$add(b_2)$relu()
+    sigma_sq_vec <<- w_3$mm(h_1)$add(b_3)$exp()
+    mu <<- w_4$mm(h_1)$add(b_4)$relu()
+    
+    ### -------- Encoder for Auxiliary Latent Space --------
+    # Similar encoding process for auxiliary representation `v_t_prime`
+    h_prime <<- w_1_prime$mm(X_tensor)$add(b_1_prime)$relu()
+    h_1_prime <<- w_2_prime$mm(h_prime)$add(b_2_prime)$relu()
+    
+    ### -------- Activation via Laplace transformation --------
+    h_1_prime_laplace <<- h_1_prime$multiply(-0.2)$exp()$mean(dim=2)
+    h_1_prime_t <<- h_1_prime_laplace$log()$multiply(-1)
+    h_1_prime_to_theta <<- (0.2-h_1_prime_t$pow(2))$pow(2)$divide(4*h_1_prime_t$pow(2))$view(c(k,1))
+    theta_propagate <<- h_1_prime_to_theta$expand(c(k,n.t))
+    
+    sigma_sq_vec_prime <<- w_3_prime$mm(theta_propagate)$add(b_3_prime)$exp() #w_3_prime$mm(h_1_prime)$add(b_3_prime)$exp()
+    mu_prime <<- w_4_prime$mm(theta_propagate)$add(b_4_prime) #w_4_prime$mm(h_1_prime)$add(b_4_prime)
+    
+    ### -------- Re-parameterization trick --------
+    v_t <<- mu + sqrt(sigma_sq_vec)*Epsilon
+    v_t_prime <<- mu_prime + sqrt(sigma_sq_vec_prime)*Epsilon_prime
+    
+    
+    ### -------- Decoder --------
+    # Decode auxiliary latent variables to reconstruct input
+    l <<- w_5$mm(v_t_prime)$add(b_5)$relu()
+    l_1 <<- w_6$mm(l)$add(b_6)$relu()
+    theta_t <<- w_7$mm(l_1)$add(b_7)$relu()
+    
+    # Apply leaky ReLU activation for final output
+    y_star <<- lrelu(W_alpha_tensor$mm(v_t)$add(b_8))
+    
+    
+    ### -------- Evidence Lower Bound (ELBO) -------- 
+    # Compute reconstruction loss (Part 1)
+    standardized <<- X_tensor$divide(y_star)$sub(m)
+    leak <<- as_array(sum(standardized<0))
+    if(leak>0 & leak<=200) standardized$abs_()
+    leak2 <<- as_array(sum(standardized==0))
+    if(leak2>0 & leak2<=120) standardized$add_(1e-07)
+    part1 <<- -2 * standardized$log()$sum() - y_star$log()$sum() - tau*standardized$pow(-1)$sum() # + n.s*n.t*log(tau)
+    
+    # Compute latent space regularization (Part 2)
+    V_t <<- v_t$view(c(k*n.t,1))
+    Theta_t <<- theta_t$view(c(k*n.t,1))
+    part_log_v1  <<- V_t$pow(-const)$mm(Zolo_vec) 
+    part_log_v2  <<- (-V_t$pow(-const1)$mm(Zolo_vec))$exp()
+    part_log_v3 <<- Theta_t$pow(alpha)-Theta_t$mul(V_t)
+    part2 <<- (part_log_v1$mul(part_log_v2)$mean(dim=2)$log()+part_log_v3$view(k*n.t)$add(const3))$sum()
+    if(as_array(part2) == -Inf) {
+      part2_tmp <<- part_log_v1$log()[,1] + (-V_t$pow(-const1)$mm(Zolo_vec))[,1]
+      part2 <<- (part2_tmp+part_log_v3$view(k*n.t)$add(const3))$sum()
+    }
+    
+    # Compute Gaussian prior penalty (Part 3)
+    part3 = Epsilon$pow(2)$sum()/2 + Epsilon_prime$pow(2)$sum()/2 + sigma_sq_vec$log()$sum() + sigma_sq_vec_prime$log()$sum()
+    
+    # Aggregate ELBO
+    res <<- part1 + part2 + part3
+    loss <<- (res/(n.s*n.t))
+    
+    #Log and terminate early on NaN or diverging loss
+    if(!is.finite(loss$item())) break
+    if (t %% 100 == 0)
+      cat("Epoch: ", t, "   ELBO: ", loss$item(), "\n") # we want to maximize
+    
+    ### -------- Backpropagation --------
+    # compute gradient of loss w.r.t. all tensors with requires_grad = TRUE
+    loss$backward()
+    
+    ### -------- Update Parameters --------
+    # Perform parameter updates with momentum
+    
+    # Wrap in with_no_grad() because this is a part we DON'T 
+    # want to record for automatic gradient computation
+    with_no_grad({
+      old_loss <<- loss$item()
+      w_1_velocity <<- alpha_v*w_1_velocity - learning_rate*w_1$grad
+      w_1$add_(w_1_velocity)
+      w_2_velocity <<- alpha_v*w_2_velocity - learning_rate*w_2$grad
+      w_2$add_(w_2_velocity)
+      w_3_velocity <<- alpha_v*w_3_velocity - learning_rate*w_3$grad
+      w_3$add_(w_3_velocity)
+      w_4_velocity <<- alpha_v*w_4_velocity - learning_rate*w_4$grad
+      w_4$add_(w_4_velocity)
+      b_1_velocity <<- alpha_v*b_1_velocity - learning_rate*b_1$grad
+      b_1$add_(b_1_velocity)
+      b_2_velocity <<- alpha_v*b_2_velocity - learning_rate*b_2$grad
+      b_2$add_(b_2_velocity)
+      b_3_velocity <<- alpha_v*b_3_velocity - learning_rate*b_3$grad
+      b_3$add_(b_3_velocity)
+      b_4_velocity <<- alpha_v*b_4_velocity - learning_rate*b_4$grad
+      b_4$add_(b_4_velocity)
+      w_1_prime_velocity <<- alpha_v*w_1_prime_velocity - learning_rate*w_1_prime$grad
+      w_1_prime$add_(w_1_prime_velocity)
+      w_2_prime_velocity <<- alpha_v*w_2_prime_velocity - learning_rate*w_2_prime$grad
+      w_2_prime$add_(w_2_prime_velocity)
+      w_3_prime_velocity <<- alpha_v*w_3_prime_velocity - learning_rate*w_3_prime$grad
+      w_3_prime$add_(w_3_prime_velocity)
+      w_4_prime_velocity <<- alpha_v*w_4_prime_velocity - learning_rate*w_4_prime$grad
+      w_4_prime$add_(w_4_prime_velocity)
+      b_1_prime_velocity <<- alpha_v*b_1_prime_velocity - learning_rate*b_1_prime$grad
+      b_1_prime$add_(b_1_prime_velocity)
+      b_2_prime_velocity <<- alpha_v*b_2_prime_velocity - learning_rate*b_2_prime$grad
+      b_2_prime$add_(b_2_prime_velocity)
+      b_3_prime_velocity <<- alpha_v*b_3_prime_velocity - learning_rate*b_3_prime$grad
+      b_3_prime$add_(b_3_prime_velocity)
+      b_4_prime_velocity <<- alpha_v*b_4_prime_velocity - learning_rate*b_4_prime$grad
+      b_4_prime$add_(b_4_prime_velocity)
+      
+      w_5_velocity <<- alpha_v*w_5_velocity - learning_rate*w_5$grad
+      w_5$add_(w_5_velocity)
+      w_6_velocity <<- alpha_v*w_6_velocity - learning_rate*w_6$grad
+      w_6$add_(w_6_velocity)
+      w_7_velocity <<- alpha_v*w_7_velocity - learning_rate*w_7$grad
+      w_7$add_(w_7_velocity)
+      b_5_velocity <<- alpha_v*b_5_velocity - learning_rate*b_5$grad
+      b_5$add_(b_5_velocity)
+      b_6_velocity <<- alpha_v*b_6_velocity - learning_rate*b_6$grad
+      b_6$add_(b_6_velocity)
+      b_7_velocity <<- alpha_v*b_7_velocity - learning_rate*b_7$grad
+      b_7$add_(b_7_velocity)
+      b_8_velocity <<- alpha_v*b_8_velocity - learning_rate*b_8$grad
+      b_8$add_(b_8_velocity)
+      
+      # Zero gradients after every pass, as they'd accumulate otherwise
+      w_1$grad$zero_()
+      w_2$grad$zero_()
+      w_3$grad$zero_()
+      w_4$grad$zero_()
+      b_1$grad$zero_()
+      b_2$grad$zero_()
+      b_3$grad$zero_()
+      b_4$grad$zero_()
+      w_1_prime$grad$zero_()
+      w_2_prime$grad$zero_()
+      w_3_prime$grad$zero_()
+      w_4_prime$grad$zero_()
+      b_1_prime$grad$zero_()
+      b_2_prime$grad$zero_()
+      b_3_prime$grad$zero_()
+      b_4_prime$grad$zero_()
+      w_5$grad$zero_()
+      w_6$grad$zero_()
+      w_7$grad$zero_()
+      b_5$grad$zero_()
+      b_6$grad$zero_()
+      b_7$grad$zero_()
+      b_8$grad$zero_()
+    })
+  }
+}
+
+
+
+
 #' Derive Data-Driven Knots for Spatio-Temporal Models
 #'
 #' This function identifies data-driven knots (spatial locations) based on high values in 
@@ -922,6 +1315,7 @@ spatial_map <- function(stations, var=NULL, pal=RColorBrewer::brewer.pal(9,"OrRd
 #' chi_plot(X, stations, emulation, distance=0.5)
 #' @import ggplot2
 #' @import fields
+#' @import ggh4x
 #' @export
 chi_plot <- function(X, stations, emulation, distance, tol=0.001,
                      u_vec=c(seq(0,0.98,0.01),seq(0.9801,0.9999,0.0001)),
@@ -1081,9 +1475,12 @@ chi_plot <- function(X, stations, emulation, distance, tol=0.001,
 #'
 #' @examples
 #' # Example usage:
-#' load("./data/copulas.RData")
+#' data(copulas)
 #' ARE_comparison(stations, U1=U_sim_grid, U2=U_xvae_grid, U3=U_gan_grid, names =c("Truth", "XVAE", "extGAN"))
-#'
+#' @import ggplot2
+#' @import fields
+#' @import ggh4x
+#' @import tidyterra
 #' @export
 ARE_comparison <- function(stations, center=NULL, U1, U2=NULL, U3=NULL, u_vec=NULL, names =c("Truth", "XVAE", "extGAN")){
   tidyterra::is_regular_grid(stations, digits = 6) #stop("The spatial input must be on a regular grid.")
@@ -1173,7 +1570,7 @@ ARE_comparison <- function(stations, center=NULL, U1, U2=NULL, U3=NULL, u_vec=NU
     theme(plot.title = element_text(hjust = 0.5)) + 
     scale_x_continuous(expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0), limits=c(0, 13)) + 
-    ggh4x::force_panelsizes(rows = unit(3.05, "in"),
+    force_panelsizes(rows = unit(3.05, "in"),
                             cols = unit(3.05, "in")) + theme(plot.title = element_text(face = 'bold'))
   
   legend <- TRUE; show.axis.y <- TRUE
@@ -1183,3 +1580,71 @@ ARE_comparison <- function(stations, center=NULL, U1, U2=NULL, U3=NULL, u_vec=NU
                                       axis.title.y = element_blank())
   plt
 }
+
+
+
+
+##################################################################
+##  ------------------------ Data sets ---------------------------
+##################################################################
+#' Example Data for XVAE Modeling and Emulation
+#'
+#' This dataset contains two components: `X`, a matrix of simulated data using the Model 
+#' III setting in Zhang et al., and `stations`, a vector of station coodinates. The dataset
+#'  is useful for testing and demonstrating XVAE and other relavant emulators.
+#'
+#' @format A list containing two named elements:
+#' \describe{
+#'   \item{\code{X}}{A matrix of simulated data points, used as input for XVAE.}
+#'   \item{\code{stations}}{A character vector of station coordinates corresponding to the rows in \code{X}.}
+#' }
+#'
+#' @details 
+#' This dataset is intended for use in testing and demonstrating the XVAE 
+#' approaches. The matrix \code{X} contains simulated data, and \code{stations} provides 
+#' the coordinates of stations from which the data were simulated. 
+#' The dataset can be used for basic exploration, analysis, or to benchmark XVAE.
+#'
+#' @examples
+#' # Load the example dataset
+#' data(example_X)
+#'
+#' # Explore the simulated data matrix
+#' str(X)
+#'
+#' # Examine the station names
+#' head(stations)
+#' 
+"example_X"
+
+
+#' Simulated and Generated Copulas
+#'
+#' This dataset contains simulated and generated data using various methods in their uniform
+#' scale. The data includes grids for simulated data, XVAE-generated data, 
+#' and GAN-generated data.
+#'
+#' @format A list containing three named elements, each represented as a matrix:
+#' \describe{
+#'   \item{\code{U_sim_grid}}{A matrix containing simulated data points based on copula models.}
+#'   \item{\code{U_xvae_grid}}{A matrix containing data generated using an XVAE (Variational Autoencoder) approach.}
+#'   \item{\code{U_gan_grid}}{A matrix containing data generated using a GAN (Generative Adversarial Network) approach.}
+#' }
+#'
+#' @details 
+#' This dataset can be used to compare the performance and characteristics of 
+#' different data generation methods in the context of copula modeling. 
+#' Each grid provides a set of points useful for analysis, visualization, or 
+#' methodological evaluation.
+#'
+#' @examples
+#' # Load the data
+#' data(copulas)
+#'
+#' # Explore the simulated data
+#' str(U_sim_grid)
+#'
+#' # Compare data from different methods
+#' summary(U_xvae_grid)
+#' summary(U_gan_grid)
+"copulas"
