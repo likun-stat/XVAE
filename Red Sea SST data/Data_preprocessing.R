@@ -1,46 +1,19 @@
-setwd("./XCVAE/")
+setwd("./XVAE/")
 source("utils.R")
 
 ##############################################################################
 ## ----- Use Red Sea SST data to demonstrate the initialization of XVAE ------
 ##############################################################################
 ## Load the data set
-load("./Red Sea SST data/mon_max_trans.RData")
-load("./Red Sea SST data/new_loc.RData")
-load("./Red Sea SST data/fitted_gev_par.RData")
+load("./data/new_loc.rda")
+load("./data/fitted_gev_par.rda") # GEV margins (see manuscript for justification)
 
-range(new_loc[,2])
-plot_data <- data.frame(lon = new_loc[,1], lat = new_loc[,2], unif = mon_max_trans[,1], 
-                        loc = fitted_gev_par$location, scale = fitted_gev_par$scale, shape=fitted_gev_par$shape)
-# ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=unif)) +
-#   geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
-#                                                    color = "gray",  size = 0.5) +
-#   scale_fill_gradientn(colours = topo.colors(100), name = "Time 1", na.value = NA, limits=c(0,1)) +
-#   xlim(29, 48) + ylim(9, 34)
-# 
-# ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=loc)) +
-#   geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
-#             color = "gray",  size = 0.5) +
-#   scale_fill_gradientn(colours = topo.colors(100), name = expression(mu), na.value = NA) +
-#   xlim(29, 48) + ylim(9, 34)
-# 
-# ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=scale)) +
-#   geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
-#             color = "gray",  size = 0.5) +
-#   scale_fill_gradientn(colours = topo.colors(100), name = expression(tau), na.value = NA) +
-#   xlim(29, 48) + ylim(9, 34)
-# 
-# ggplot(plot_data) + geom_raster(aes(x=lon, y=lat, fill=shape)) +
-#   geom_path(data = map_data("world2"), aes(x = long, y = lat, group = group),
-#             color = "gray",  size = 0.5) +
-#   scale_fill_gradientn(colours = topo.colors(100), name = expression(xi), na.value = NA) +
-#   xlim(29, 48) + ylim(9, 34)
 
 
 ###### ---------------------------------------------------------------------- ######
 ###### ------------------------ Marginal transformation --------------------- ######
 ###### ---------------------------------------------------------------------- ######
-load("./mon_max_allsites.RData") # GEV margins (see manuscript for justification)
+load("./data/mon_max_allsites.rda") 
 fitted_gev_par$beta <- fitted_gev_par$location - fitted_gev_par$scale/fitted_gev_par$shape
 X <- array(NA, dim(mon_max_allsites))
 for(iter in 1:nrow(X)){

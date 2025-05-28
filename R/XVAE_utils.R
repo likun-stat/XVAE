@@ -655,6 +655,7 @@ XVAE_training_loop <- function(alpha, nEpoch, learning_rate, alpha_v){
 #' @export
 data_driven_knots <- function(X, stations, threshold_p, echo=FALSE, start.knot.num = NULL){
   # Set the default number of knots if not specified
+  colnames(stations) <- c('x', 'y')
   if (is.null(start.knot.num)) 
     start.knot.num <- round(5 * log(nrow(stations)))
   
@@ -1105,6 +1106,13 @@ H_density <- function(x,alpha=alpha,delta=delta,theta=theta){
 #' @export
 marginal_thetavec <- function(x,L=L,theta=theta,alpha=alpha,k_l=k_l){
   y <- sapply(x, function(z) exp(sum(theta^alpha - (theta+(k_l/z)^(1/alpha))^alpha)))
+  return(y)
+}
+
+
+marginal_thetavec_LZ <- function(x,L,theta,alpha, k_l, alpha0=1, tau){
+  k_l <- k_l^{1/alpha} # assuming the input W
+  y <- sapply(x, function(z) exp(sum(theta^alpha - (theta+k_l*(tau/z)^(1/alpha0))^alpha)))
   return(y)
 }
 

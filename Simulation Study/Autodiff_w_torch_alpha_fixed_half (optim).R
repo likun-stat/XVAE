@@ -48,6 +48,8 @@ for (iter in 1:n.t) {
   X[,iter] <-  Epsilon_frechet[,iter]* ((W^(1/alpha))%*%Z[,iter])
 }
 
+save(stations, X, file="./example_X.rda")
+
 
 ind=1
 spatial_map(stations, var=X[,ind], tight.brks = TRUE, title=paste0('Time replicate #', ind))

@@ -42,7 +42,7 @@ library(XVAE)
 2. The users can follow the demonstration shown below to learn the implementation of
 the XVAE. We wish to translate everything into python in the near future
 and deliver a more user-friendly package. For the time being, the users
-check the help pages by calling `?function_name`.
+can check the help pages by calling `?function_name`.
 
 
 ## Step-by-Step Instructions
@@ -195,7 +195,8 @@ The previous simulated dataset is not on a regular grid. But XVAE can perform sp
 We can use the following function to compute and visualize ARE:
 ``` ruby
 data(copulas)
-ARE_comparison(stations_grid, U1=U_sim_grid, U2=U_xvae_grid, U3=U_gan_grid, names =c("Truth", "XVAE", "extGAN"))
+ARE_comparison(stations_grid, U1=U_sim_grid, U2=U_xvae_grid, U3=U_gan_grid, 
+                names =c("Truth", "XVAE", "extGAN"))
 ```
 <img src="www/ARE.png" alt="drawing" width="400"/>
 
